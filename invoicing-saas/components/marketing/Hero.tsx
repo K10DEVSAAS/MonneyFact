@@ -57,7 +57,7 @@ export const Hero: React.FC = () => {
         <div className="flex flex-wrap items-center justify-center gap-6 text-xs font-semibold text-slate-500 pt-2">
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span>Plan gratuit 0 FCFA disponible</span>
+            <span>À partir de 1 000 FCFA/mois</span>
           </div>
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
