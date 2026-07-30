@@ -36,7 +36,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionRef, setTransactionRef] = useState('');
 
-  // 1. REAL-TIME PUBLIC SUPABASE & STORE QUERY: Load invoice for any guest client globally
+  // 1. REAL-TIME PUBLIC SUPABASE & STORE QUERY: Bulletproof Type-Safe Fetch
   useEffect(() => {
     let isMounted = true;
 
@@ -44,15 +44,25 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
       setLoading(true);
 
       try {
-        // A. Direct Supabase Database Query for public guest clients
-        const { data: dbInv, error } = await supabase
-          .from('invoices')
-          .select(`
-            *,
-            invoice_items (*)
-          `)
-          .or(`id.eq.${token},invoice_number.eq.${token},payment_token.eq.${token}`)
-          .maybeSingle();
+        // Safe check: Is token a valid UUID format?
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+
+        let query = supabase.from('invoices').select(`
+          *,
+          invoice_items (*)
+        `);
+
+        if (isUuid) {
+          query = query.or(`id.eq.${token},payment_token.eq.${token}`);
+        } else {
+          query = query.or(`payment_token.eq.${token},invoice_number.eq.${token}`);
+        }
+
+        const { data: dbInv, error } = await query.maybeSingle();
+
+        if (error) {
+          console.warn('Supabase DB query error:', error);
+        }
 
         if (dbInv && isMounted) {
           const formattedItems = (dbInv.invoice_items || []).map((item: any) => ({
@@ -114,7 +124,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
         console.warn('Supabase DB fetch fallback to store:', err);
       }
 
-      // B. Fallback Local Store Search (If offline or testing locally)
+      // B. Fallback Local Store Search
       if (isMounted) {
         const storeInvoice = invoices.find(
           (inv) => inv.id === token || inv.invoiceNumber === token || inv.paymentToken === token
@@ -170,7 +180,6 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
       if (cRes.code === '201' && cRes.data?.payment_url) {
         window.open(cRes.data.payment_url, '_blank');
         updateInvoiceStatus(invoice.id, 'paid');
-        // Sync with Supabase asynchronously
         await supabase
           .from('invoices')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
