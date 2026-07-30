@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, Building, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, Building, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
 
@@ -9,6 +10,9 @@ export default function ClientsPage() {
   const { clients, addClient, deleteClient, organization } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const isDecouverte = organization.plan === 'Découverte';
+  const decouverteLimitReached = isDecouverte && clients.length >= 5;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,6 +36,11 @@ export default function ClientsPage() {
       return;
     }
 
+    if (decouverteLimitReached) {
+      alert('Limite de 5 clients atteinte pour la formule Découverte. Passez au Plan Pro (5.000 FCFA) dans les Paramètres pour ajouter des clients illimités !');
+      return;
+    }
+
     addClient({
       organizationId: organization.id,
       name: formData.name,
@@ -49,7 +58,26 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in text-slate-900">
+      {/* ALERT BANNER IF DÉCOUVERTE CLIENT LIMIT REACHED */}
+      {decouverteLimitReached && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-900 text-xs font-semibold flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="font-extrabold text-slate-900">Limite atteinte : Formule Découverte ({clients.length}/5 clients)</p>
+              <p className="text-slate-600">Vous avez atteint la limite de 5 clients sur la formule gratuite. Passez au Plan Pro pour ajouter des clients en illimité !</p>
+            </div>
+          </div>
+          <Link
+            href="/settings"
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shrink-0 shadow-xs"
+          >
+            Passez au Plan Pro (5.000 FCFA)
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -59,13 +87,25 @@ export default function ClientsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nouveau Client</span>
-        </button>
+        {decouverteLimitReached ? (
+          <button
+            onClick={() =>
+              alert('Limite de 5 clients atteinte pour la formule Découverte. Passez au Plan Pro (5.000 FCFA) dans les Paramètres pour ajouter des clients illimités !')
+            }
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouveau Client (Limite 5/5)</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouveau Client</span>
+          </button>
+        )}
       </div>
 
       {/* Search & Stats Bar */}
@@ -151,7 +191,7 @@ export default function ClientsPage() {
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <span className="text-slate-500 font-medium">Facturé :</span>
-                <span className="font-mono-numbers font-bold text-slate-900">
+                <span className="font-mono font-bold text-slate-900">
                   {formatFCFA(client.totalInvoiced)}
                 </span>
               </div>

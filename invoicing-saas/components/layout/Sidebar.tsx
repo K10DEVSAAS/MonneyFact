@@ -12,6 +12,8 @@ import {
   Receipt,
   Building2,
   LogOut,
+  UserCheck,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
@@ -26,10 +28,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { organization, invoices, clients } = useAppStore();
 
+  const isBusinessPlan = organization.plan === 'Business';
+
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Factures', href: '/invoices', icon: FileText, badge: invoices.length > 0 ? invoices.length.toString() : undefined },
     { name: 'Clients', href: '/clients', icon: Users, badge: clients.length > 0 ? clients.length.toString() : undefined },
+    { name: 'Équipe & Comptables', href: '/team', icon: UserCheck, crownBadge: !isBusinessPlan },
+    { name: 'Multi-Entreprises', href: '/subsidiaries', icon: Building2, crownBadge: !isBusinessPlan },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ];
 
@@ -79,13 +85,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Organization Card Switcher */}
         <div className="px-4 py-3 border-b border-zinc-800/60">
-          <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 flex items-center justify-center shrink-0">
-              <Building2 className="w-4 h-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white truncate">{organization.name}</p>
-              <p className="text-[11px] text-zinc-400 truncate">{organization.address || 'Côte d\'Ivoire'}</p>
+          <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 flex items-center justify-center shrink-0">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">{organization.name}</p>
+                <p className="text-[10px] text-orange-400 font-bold font-mono">Plan {organization.plan || 'Pro'}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -115,7 +123,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`} />
                   <span>{item.name}</span>
                 </div>
-                {item.badge && (
+
+                {item.crownBadge ? (
+                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <Crown className="w-3 h-3 text-amber-400" />
+                    <span>Business</span>
+                  </span>
+                ) : item.badge ? (
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       isActive ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-300'
@@ -123,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   >
                     {item.badge}
                   </span>
-                )}
+                ) : null}
               </Link>
             );
           })}
