@@ -30,16 +30,21 @@ export default function NewInvoicePage() {
   const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState('');
 
+  const isBusinessPlan = organization.plan === 'Business';
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('monneyfact_subsidiaries_list');
       if (saved) {
-        setSubsidiariesList(JSON.parse(saved));
+        const allSubs: Subsidiary[] = JSON.parse(saved);
+        // STRICT SECURITY FILTER: Only load sub-companies belonging to current organization
+        const ownSubs = allSubs.filter((s) => s.organizationId === organization.id);
+        setSubsidiariesList(ownSubs);
       }
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [organization.id]);
 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientName, setClientName] = useState('');
@@ -121,12 +126,12 @@ export default function NewInvoicePage() {
     try {
       const generatedNumber = `FAC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      const chosenSub = subsidiariesList.find((s) => s.id === selectedSubsidiaryId);
+      const chosenSub = isBusinessPlan ? subsidiariesList.find((s) => s.id === selectedSubsidiaryId) : undefined;
 
       await addInvoice({
         invoiceNumber: generatedNumber,
         organizationId: organization.id,
-        subsidiaryId: selectedSubsidiaryId || undefined,
+        subsidiaryId: isBusinessPlan ? (selectedSubsidiaryId || undefined) : undefined,
         subsidiaryName: chosenSub?.name || undefined,
         clientId: selectedClientId || `cli-temp-${Date.now()}`,
         clientName,
@@ -183,14 +188,14 @@ export default function NewInvoicePage() {
               <p className="text-xs text-slate-500">Calcul automatique de la TVA 18% et devises en FCFA</p>
             </div>
 
-            {/* Select Etablissement / Agence */}
+            {/* Issuer Branch / Sub-company Selector - ONLY SHOWN FOR BUSINESS PLAN WITH REGISTERED SUB-COMPANIES */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
-              {subsidiariesList.length > 0 ? (
+              {isBusinessPlan && subsidiariesList.length > 0 ? (
                 <select
                   value={selectedSubsidiaryId}
                   onChange={(e) => setSelectedSubsidiaryId(e.target.value)}
-                  className="text-xs font-extrabold text-slate-900 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:border-orange-500"
+                  className="text-xs font-extrabold text-slate-900 bg-white border border-slate-200 rounded-lg px-2.5 py-1 focus:border-orange-500"
                 >
                   <option value="">{organization.name} (Siège Social)</option>
                   {subsidiariesList.map((sub) => (

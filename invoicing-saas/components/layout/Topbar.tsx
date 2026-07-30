@@ -29,11 +29,15 @@ export const Topbar: React.FC<TopbarProps> = ({
   useEffect(() => {
     try {
       const saved = localStorage.getItem('monneyfact_subsidiaries_list');
-      if (saved) setSubsidiaries(JSON.parse(saved));
+      if (saved) {
+        const all: Subsidiary[] = JSON.parse(saved);
+        // STRICT DATA ISOLATION FILTER BY ORGANIZATION ID
+        setSubsidiaries(all.filter((s) => s.organizationId === organization.id));
+      }
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [organization.id]);
 
   const today = formatDate(new Date().toISOString());
   const unreadCount = isAdmin ? unreadAdminNotifCount : unreadCompanyNotifCount;
