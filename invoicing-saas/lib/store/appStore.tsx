@@ -25,7 +25,7 @@ interface AppStoreType {
   registeredCompanies: RegisteredCompany[];
   unreadCompanyNotifCount: number;
   unreadAdminNotifCount: number;
-  addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => void;
+  addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => Promise<void>;
   updateInvoiceStatus: (id: string, status: Invoice['status']) => void;
   deleteInvoice: (id: string) => void;
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
@@ -53,25 +53,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>([]);
 
-  // Helper to ensure Organization exists in Supabase DB
-  const ensureOrganizationInDb = async (org: Organization) => {
-    const validOrgId = getValidUuid(org.id);
-    try {
-      console.log('[DEBUG ADD_INVOICE STEP 1] Ensuring Organization in DB:', validOrgId);
-      await supabase.from('organizations').upsert({
-        id: validOrgId,
-        name: org.name || 'Mon Entreprise',
-        email: org.email || `${validOrgId}@monneyfact.ci`,
-        phone: org.phone || '+225 07 00 00 00 00',
-        address: org.address || 'Abidjan, Côte d\'Ivoire',
-        tax_id: org.taxId || 'NCC Non Renseigné',
-      }, { onConflict: 'id' });
-    } catch (err) {
-      console.warn('[DEBUG STEP 1 WARN] Organization upsert warning:', err);
-    }
-    return validOrgId;
-  };
-
   // Restore state from localStorage & Supabase DB on mount
   useEffect(() => {
     let isSubscribed = true;
@@ -84,8 +65,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           currentOrg = JSON.parse(savedOrg);
           if (isSubscribed) setOrganization(currentOrg);
         }
-
-        const validOrgId = await ensureOrganizationInDb(currentOrg);
 
         const savedInvoices = localStorage.getItem('monneyfact_invoices');
         if (savedInvoices) {
@@ -180,7 +159,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const unreadCompanyNotifCount = companyNotifications.filter((n) => !n.read).length;
   const unreadAdminNotifCount = adminNotifications.filter((n) => !n.read).length;
 
-  // --- ACTIONS WITH DETAILED STEP-BY-STEP LOGS & SUPABASE DB SYNC ---
+  // --- ACTIONS WITH GUARANTEED SERVER API INVOICE INSERT ---
   const addInvoice = async (newInv: Omit<Invoice, 'id' | 'createdAt'>) => {
     const generatedId = `inv-${Date.now()}`;
     const created: Invoice = {
@@ -190,8 +169,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createdAt: new Date().toISOString(),
     };
 
-    console.log('[DEBUG ADD_INVOICE STEP 1] Created Invoice Object:', created);
-
     const updated = [created, ...invoices];
     setInvoices(updated);
     try {
@@ -200,46 +177,23 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(e);
     }
 
-    // 1. Ensure valid Organization UUID exists in Supabase DB first
-    const validOrgId = await ensureOrganizationInDb(organization);
-
-    // 2. Direct Sync to Supabase DB public.invoices with payment_token = generatedId
+    // Call Guaranteed Server API endpoint /api/invoices/create
     try {
-      console.log('[DEBUG ADD_INVOICE STEP 2] Syncing to Supabase DB with payment_token:', generatedId);
+      console.log('[DEBUG STORE] Sending invoice payload to /api/invoices/create:', generatedId);
+      const apiRes = await fetch('/api/invoices/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...created,
+          paymentToken: generatedId,
+          organizationName: organization.name,
+        }),
+      });
 
-      const { data: insertedInvoice, error: invErr } = await supabase.from('invoices').insert({
-        invoice_number: created.invoiceNumber,
-        organization_id: validOrgId,
-        client_name: created.clientName,
-        client_email: created.clientEmail,
-        status: created.status,
-        issue_date: created.issueDate,
-        due_date: created.dueDate,
-        subtotal: created.subtotal,
-        tax_rate: created.taxRate,
-        tax_amount: created.taxAmount,
-        total: created.total,
-        notes: created.notes,
-        observations: created.observations || '',
-        signature_url: created.signatureUrl || '',
-        payment_token: generatedId,
-      }).select('*').single();
-
-      console.log('[DEBUG ADD_INVOICE STEP 3] Supabase DB Insert Result:', { insertedInvoice, invErr });
-
-      if (insertedInvoice && created.items && created.items.length > 0) {
-        const itemRows = created.items.map((item) => ({
-          invoice_id: insertedInvoice.id,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          line_total: item.lineTotal,
-        }));
-        const { error: itemsErr } = await supabase.from('invoice_items').insert(itemRows);
-        console.log('[DEBUG ADD_INVOICE STEP 4] Invoice Items Insert Result Error:', itemsErr);
-      }
-    } catch (dbErr) {
-      console.error('[DEBUG ADD_INVOICE ERROR] Database sync exception:', dbErr);
+      const resData = await apiRes.json();
+      console.log('[DEBUG STORE] /api/invoices/create Response:', resData);
+    } catch (apiErr) {
+      console.error('[DEBUG STORE ERROR] /api/invoices/create fetch error:', apiErr);
     }
 
     addCompanyNotif(

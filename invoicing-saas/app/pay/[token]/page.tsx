@@ -36,36 +36,22 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionRef, setTransactionRef] = useState('');
 
-  // 1. DIAGNOSTIC REAL-TIME PUBLIC SUPABASE & STORE QUERY
+  // 1. GUARANTEED SERVER API FETCH: /api/pay/[token]
   useEffect(() => {
     let isMounted = true;
 
     const fetchPublicInvoice = async () => {
       setLoading(true);
-
-      console.log('[DEBUG PUBLIC_PAYMENT STEP 1] Received URL Token:', token);
+      console.log('[PUBLIC PAY] Fetching via Server API /api/pay/', token);
 
       try {
-        // Safe check: Is token a valid UUID format?
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
-        console.log('[DEBUG PUBLIC_PAYMENT STEP 2] Is Token UUID format?:', isUuid);
+        const res = await fetch(`/api/pay/${token}`);
+        const resData = await res.json();
+        console.log('[PUBLIC PAY] Server API Response:', resData);
 
-        let query = supabase.from('invoices').select(`
-          *,
-          invoice_items (*)
-        `);
+        if (resData.success && resData.invoice && isMounted) {
+          const dbInv = resData.invoice;
 
-        if (isUuid) {
-          query = query.or(`id.eq.${token},payment_token.eq.${token}`);
-        } else {
-          query = query.or(`payment_token.eq.${token},invoice_number.eq.${token}`);
-        }
-
-        const { data: dbInv, error } = await query.maybeSingle();
-
-        console.log('[DEBUG PUBLIC_PAYMENT STEP 3] Supabase DB Query Result:', { dbInv, error });
-
-        if (dbInv && isMounted) {
           const formattedItems = (dbInv.invoice_items || []).map((item: any) => ({
             id: item.id,
             description: item.description,
@@ -74,18 +60,9 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
             lineTotal: Number(item.line_total),
           }));
 
-          // Fetch issuing organization details if available
-          if (dbInv.organization_id) {
-            const { data: orgData } = await supabase
-              .from('organizations')
-              .select('name, logo_url')
-              .eq('id', dbInv.organization_id)
-              .maybeSingle();
-
-            if (orgData) {
-              setMerchantName(orgData.name || organization.name);
-              setMerchantLogo(orgData.logo_url || '');
-            }
+          if (dbInv.organizations) {
+            setMerchantName(dbInv.organizations.name || organization.name);
+            setMerchantLogo(dbInv.organizations.logo_url || '');
           }
 
           const parsedInvoice: Invoice = {
@@ -115,8 +92,6 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
             ],
           };
 
-          console.log('[DEBUG PUBLIC_PAYMENT STEP 4] Parsed Invoice Object:', parsedInvoice);
-
           setInvoice(parsedInvoice);
           if (parsedInvoice.status === 'paid') {
             setPaymentSuccess(true);
@@ -125,24 +100,20 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
           return;
         }
       } catch (err) {
-        console.warn('[DEBUG PUBLIC_PAYMENT WARN] Supabase DB fetch fallback to store:', err);
+        console.warn('[PUBLIC PAY] Server API fetch error:', err);
       }
 
       // B. Fallback Local Store Search
       if (isMounted) {
-        console.log('[DEBUG PUBLIC_PAYMENT STEP 5] Fallback to Local Store search. Available store invoices:', invoices.length);
         const storeInvoice = invoices.find(
           (inv) => inv.id === token || inv.invoiceNumber === token || inv.paymentToken === token
         );
 
         if (storeInvoice) {
-          console.log('[DEBUG PUBLIC_PAYMENT STEP 6] Found invoice in Store:', storeInvoice);
           setInvoice(storeInvoice);
           if (storeInvoice.status === 'paid') {
             setPaymentSuccess(true);
           }
-        } else {
-          console.log('[DEBUG PUBLIC_PAYMENT STEP 7] Invoice NOT found in Store either!');
         }
         setLoading(false);
       }
