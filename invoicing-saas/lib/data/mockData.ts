@@ -1,7 +1,7 @@
 import { Client, Invoice, Organization, DashboardStats } from '../types/invoice';
 
 export const mockOrganization: Organization = {
-  id: 'org-default',
+  id: 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c',
   name: 'Mon Entreprise',
   address: 'Abidjan, Côte d\'Ivoire',
   phone: '+225 07 00 00 00 00',

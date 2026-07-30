@@ -6,18 +6,25 @@ import { mockInvoices, mockClients, mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
 import { supabase } from '../supabase/client';
 
+const DEFAULT_ORG_UUID = 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
+
+const getValidUuid = (id?: string) => {
+  if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return id;
+  }
+  return DEFAULT_ORG_UUID;
+};
+
 interface AppStoreType {
   organization: Organization;
   invoices: Invoice[];
   clients: Client[];
   stats: DashboardStats;
-  // Strictly Isolated Notifications
   companyNotifications: AppNotification[];
   adminNotifications: AppNotification[];
   registeredCompanies: RegisteredCompany[];
   unreadCompanyNotifCount: number;
   unreadAdminNotifCount: number;
-  // Invoice & Client Actions
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => void;
   updateInvoiceStatus: (id: string, status: Invoice['status']) => void;
   deleteInvoice: (id: string) => void;
@@ -25,7 +32,6 @@ interface AppStoreType {
   deleteClient: (id: string) => void;
   updateOrganization: (orgData: Partial<Organization>) => void;
   initializeZeroAccount: (companyName: string, email: string) => void;
-  // Isolated Notification Controls
   markCompanyNotifAsRead: (id: string) => void;
   markAllCompanyNotifsAsRead: () => void;
   deleteCompanyNotif: (id: string) => void;
@@ -43,10 +49,27 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
   const [clients, setClients] = useState<Client[]>(mockClients);
 
-  // ISOLATED NOTIFICATION LISTS & REGISTERED COMPANIES
   const [companyNotifications, setCompanyNotifications] = useState<AppNotification[]>([]);
   const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>([]);
+
+  // Helper to ensure Organization exists in Supabase DB
+  const ensureOrganizationInDb = async (org: Organization) => {
+    const validOrgId = getValidUuid(org.id);
+    try {
+      await supabase.from('organizations').upsert({
+        id: validOrgId,
+        name: org.name || 'Mon Entreprise',
+        email: org.email || `${validOrgId}@monneyfact.ci`,
+        phone: org.phone || '+225 07 00 00 00 00',
+        address: org.address || 'Abidjan, Côte d\'Ivoire',
+        tax_id: org.taxId || 'NCC Non Renseigné',
+      }, { onConflict: 'id' });
+    } catch (err) {
+      console.warn('Organization upsert warning:', err);
+    }
+    return validOrgId;
+  };
 
   // Restore state from localStorage & Supabase DB on mount
   useEffect(() => {
@@ -61,18 +84,19 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (isSubscribed) setOrganization(currentOrg);
         }
 
+        const validOrgId = await ensureOrganizationInDb(currentOrg);
+
         const savedInvoices = localStorage.getItem('monneyfact_invoices');
         if (savedInvoices) {
           const parsed = JSON.parse(savedInvoices);
           if (isSubscribed) setInvoices(parsed);
 
-          // Seed / Sync local invoices to Supabase DB so public links work for guest clients
           for (const inv of parsed) {
             try {
               await supabase.from('invoices').upsert({
                 id: inv.id,
                 invoice_number: inv.invoiceNumber,
-                organization_id: currentOrg.id,
+                organization_id: validOrgId,
                 client_name: inv.clientName,
                 client_email: inv.clientEmail,
                 status: inv.status,
@@ -87,45 +111,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 signature_url: inv.signatureUrl || '',
                 payment_token: inv.id,
               }, { onConflict: 'id' });
-
-              if (inv.items && inv.items.length > 0) {
-                const itemRows = inv.items.map((item: any) => ({
-                  invoice_id: inv.id,
-                  description: item.description,
-                  quantity: item.quantity,
-                  unit_price: item.unitPrice,
-                  line_total: item.lineTotal,
-                }));
-                await supabase.from('invoice_items').upsert(itemRows, { onConflict: 'id' });
-              }
             } catch (syncErr) {
               console.warn('Sync invoice error:', syncErr);
-            }
-          }
-        } else {
-          // Sync mockInvoices to Supabase DB
-          for (const inv of mockInvoices) {
-            try {
-              await supabase.from('invoices').upsert({
-                id: inv.id,
-                invoice_number: inv.invoiceNumber,
-                organization_id: currentOrg.id,
-                client_name: inv.clientName,
-                client_email: inv.clientEmail,
-                status: inv.status,
-                issue_date: inv.issueDate,
-                due_date: inv.dueDate,
-                subtotal: inv.subtotal,
-                tax_rate: inv.taxRate || 18,
-                tax_amount: inv.taxAmount,
-                total: inv.total,
-                notes: inv.notes,
-                observations: inv.observations || '',
-                signature_url: inv.signatureUrl || '',
-                payment_token: inv.id,
-              }, { onConflict: 'id' });
-            } catch (err) {
-              // ignore
             }
           }
         }
@@ -133,7 +120,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const savedClients = localStorage.getItem('monneyfact_clients');
         if (savedClients && isSubscribed) setClients(JSON.parse(savedClients));
 
-        // NOTIFICATION ISOLATION
         const orgNotifKey = `monneyfact_notifs_${currentOrg.id}`;
         const savedCompanyNotifs = localStorage.getItem(orgNotifKey);
         if (savedCompanyNotifs && isSubscribed) {
@@ -159,7 +145,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [organization.id]);
 
-  // Helper to persist company notifications STRICTLY SCOPED TO THIS ORGANIZATION ID
   const saveCompanyNotifs = (list: AppNotification[], orgId: string = organization.id) => {
     setCompanyNotifications(list);
     try {
@@ -169,7 +154,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Helper to persist admin notifications
   const saveAdminNotifs = (list: AppNotification[]) => {
     setAdminNotifications(list);
     try {
@@ -179,7 +163,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Add Company Notification
   const addCompanyNotif = (title: string, message: string, type: AppNotification['type'] = 'info', orgId: string = organization.id) => {
     const notif: AppNotification = {
       id: `cnotif-${Date.now()}`,
@@ -192,7 +175,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveCompanyNotifs([notif, ...companyNotifications], orgId);
   };
 
-  // Add Admin Notification
   const addAdminNotif = (title: string, message: string, type: AppNotification['type'] = 'info') => {
     const notif: AppNotification = {
       id: `anotif-${Date.now()}`,
@@ -205,7 +187,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveAdminNotifs([notif, ...adminNotifications]);
   };
 
-  // Compute live dashboard stats for enterprise
   const stats: DashboardStats = {
     totalInvoiced: invoices.reduce((sum, inv) => sum + inv.total, 0),
     totalPaid: invoices.filter((i) => i.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
@@ -223,7 +204,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const unreadCompanyNotifCount = companyNotifications.filter((n) => !n.read).length;
   const unreadAdminNotifCount = adminNotifications.filter((n) => !n.read).length;
 
-  // --- ACTIONS WITH SUPABASE DB SYNC ---
+  // --- ACTIONS WITH STRICT UUID SUPABASE SYNC ---
   const addInvoice = async (newInv: Omit<Invoice, 'id' | 'createdAt'>) => {
     const created: Invoice = {
       ...newInv,
@@ -239,12 +220,15 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(e);
     }
 
-    // DIRECT SYNC TO SUPABASE DB PUBLIC.INVOICES FOR WHATSAPP PUBLIC GUEST LINKS
+    // 1. Ensure valid Organization UUID exists in Supabase DB first
+    const validOrgId = await ensureOrganizationInDb(organization);
+
+    // 2. Direct Sync to Supabase DB public.invoices with valid UUID
     try {
       const { error: invErr } = await supabase.from('invoices').upsert({
         id: created.id,
         invoice_number: created.invoiceNumber,
-        organization_id: created.organizationId || organization.id,
+        organization_id: validOrgId,
         client_name: created.clientName,
         client_email: created.clientEmail,
         status: created.status,
@@ -261,7 +245,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }, { onConflict: 'id' });
 
       if (invErr) {
-        console.warn('Supabase invoice insert warning:', invErr);
+        console.error('Supabase invoice insert error:', invErr);
       }
 
       if (created.items && created.items.length > 0) {
@@ -295,7 +279,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(e);
     }
 
-    // SYNC STATUS TO SUPABASE DB
     try {
       await supabase
         .from('invoices')
@@ -380,9 +363,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     addCompanyNotif('Profil Mis à Jour', 'Les informations officielles de votre entreprise ont été mises à jour.', 'info');
   };
 
-  // Called when a brand new enterprise registers -> PURGES NOTIFICATIONS TO ZERO & NOTIFIES SUPER ADMIN
   const initializeZeroAccount = (companyName: string, email: string) => {
-    const newOrgId = `org-${Date.now()}`;
+    const newOrgId = DEFAULT_ORG_UUID;
     const newOrg: Organization = {
       id: newOrgId,
       name: companyName,
@@ -396,7 +378,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setInvoices([]);
     setClients([]);
 
-    // Add company to Super Admin directory
     const newCompany: RegisteredCompany = {
       id: `comp-${Date.now()}`,
       name: companyName,
@@ -412,7 +393,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedCompanies = [newCompany, ...registeredCompanies];
     setRegisteredCompanies(updatedCompanies);
 
-    // CRITICAL SECURITY FIX: EXPLICITLY CREATE 1 SINGLE WELCOME NOTIFICATION ONLY FOR THIS NEW COMPANY
     const welcomeNotif: AppNotification = {
       id: `cnotif-${Date.now()}`,
       title: 'Bienvenue sur MonneyFact !',
@@ -435,7 +415,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(e);
     }
 
-    // Add Super Admin Notification (AUTOMATIC INCREMENT)
     addAdminNotif(
       'Nouvelle Entreprise Inscrite 🚀',
       `L'entreprise "${companyName}" (${email}) vient de s'inscrire sur le SaaS MonneyFact.`,
@@ -443,7 +422,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  // ISOLATED COMPANY NOTIFICATION CONTROLS
   const markCompanyNotifAsRead = (id: string) => {
     saveCompanyNotifs(companyNotifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
@@ -457,7 +435,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveCompanyNotifs([]);
   };
 
-  // ISOLATED ADMIN NOTIFICATION CONTROLS
   const markAdminNotifAsRead = (id: string) => {
     saveAdminNotifs(adminNotifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
