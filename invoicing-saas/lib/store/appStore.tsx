@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Invoice, Client, Organization, DashboardStats, AppNotification } from '../types/invoice';
 import { mockInvoices, mockClients, mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
+import { supabase } from '../supabase/client';
 
 interface AppStoreType {
   organization: Organization;
@@ -47,40 +48,115 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>([]);
 
-  // Restore state from localStorage on mount & when organization changes
+  // Restore state from localStorage & Supabase DB on mount
   useEffect(() => {
-    try {
-      const savedOrg = localStorage.getItem('monneyfact_org_data');
-      let currentOrg = mockOrganization;
-      if (savedOrg) {
-        currentOrg = JSON.parse(savedOrg);
-        setOrganization(currentOrg);
+    let isSubscribed = true;
+
+    const loadData = async () => {
+      try {
+        const savedOrg = localStorage.getItem('monneyfact_org_data');
+        let currentOrg = mockOrganization;
+        if (savedOrg) {
+          currentOrg = JSON.parse(savedOrg);
+          if (isSubscribed) setOrganization(currentOrg);
+        }
+
+        const savedInvoices = localStorage.getItem('monneyfact_invoices');
+        if (savedInvoices) {
+          const parsed = JSON.parse(savedInvoices);
+          if (isSubscribed) setInvoices(parsed);
+
+          // Seed / Sync local invoices to Supabase DB so public links work for guest clients
+          for (const inv of parsed) {
+            try {
+              await supabase.from('invoices').upsert({
+                id: inv.id,
+                invoice_number: inv.invoiceNumber,
+                organization_id: currentOrg.id,
+                client_name: inv.clientName,
+                client_email: inv.clientEmail,
+                status: inv.status,
+                issue_date: inv.issueDate,
+                due_date: inv.dueDate,
+                subtotal: inv.subtotal,
+                tax_rate: inv.taxRate || 18,
+                tax_amount: inv.taxAmount,
+                total: inv.total,
+                notes: inv.notes,
+                observations: inv.observations || '',
+                signature_url: inv.signatureUrl || '',
+                payment_token: inv.id,
+              }, { onConflict: 'id' });
+
+              if (inv.items && inv.items.length > 0) {
+                const itemRows = inv.items.map((item: any) => ({
+                  invoice_id: inv.id,
+                  description: item.description,
+                  quantity: item.quantity,
+                  unit_price: item.unitPrice,
+                  line_total: item.lineTotal,
+                }));
+                await supabase.from('invoice_items').upsert(itemRows, { onConflict: 'id' });
+              }
+            } catch (syncErr) {
+              console.warn('Sync invoice error:', syncErr);
+            }
+          }
+        } else {
+          // Sync mockInvoices to Supabase DB
+          for (const inv of mockInvoices) {
+            try {
+              await supabase.from('invoices').upsert({
+                id: inv.id,
+                invoice_number: inv.invoiceNumber,
+                organization_id: currentOrg.id,
+                client_name: inv.clientName,
+                client_email: inv.clientEmail,
+                status: inv.status,
+                issue_date: inv.issueDate,
+                due_date: inv.dueDate,
+                subtotal: inv.subtotal,
+                tax_rate: inv.taxRate || 18,
+                tax_amount: inv.taxAmount,
+                total: inv.total,
+                notes: inv.notes,
+                observations: inv.observations || '',
+                signature_url: inv.signatureUrl || '',
+                payment_token: inv.id,
+              }, { onConflict: 'id' });
+            } catch (err) {
+              // ignore
+            }
+          }
+        }
+
+        const savedClients = localStorage.getItem('monneyfact_clients');
+        if (savedClients && isSubscribed) setClients(JSON.parse(savedClients));
+
+        // NOTIFICATION ISOLATION
+        const orgNotifKey = `monneyfact_notifs_${currentOrg.id}`;
+        const savedCompanyNotifs = localStorage.getItem(orgNotifKey);
+        if (savedCompanyNotifs && isSubscribed) {
+          setCompanyNotifications(JSON.parse(savedCompanyNotifs));
+        } else if (isSubscribed) {
+          setCompanyNotifications([]);
+        }
+
+        const savedAdminNotifs = localStorage.getItem('monneyfact_admin_notifs');
+        if (savedAdminNotifs && isSubscribed) setAdminNotifications(JSON.parse(savedAdminNotifs));
+
+        const savedCompList = localStorage.getItem('monneyfact_companies_list');
+        if (savedCompList && isSubscribed) setRegisteredCompanies(JSON.parse(savedCompList));
+      } catch (e) {
+        console.error(e);
       }
+    };
 
-      const savedInvoices = localStorage.getItem('monneyfact_invoices');
-      if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
+    loadData();
 
-      const savedClients = localStorage.getItem('monneyfact_clients');
-      if (savedClients) setClients(JSON.parse(savedClients));
-
-      // STRICT NOTIFICATION ISOLATION: Load ONLY notifications for THIS specific organization.id!
-      const orgNotifKey = `monneyfact_notifs_${currentOrg.id}`;
-      const savedCompanyNotifs = localStorage.getItem(orgNotifKey);
-      if (savedCompanyNotifs) {
-        setCompanyNotifications(JSON.parse(savedCompanyNotifs));
-      } else {
-        // If brand new company with no saved notifications, START AT STRICT ZERO
-        setCompanyNotifications([]);
-      }
-
-      const savedAdminNotifs = localStorage.getItem('monneyfact_admin_notifs');
-      if (savedAdminNotifs) setAdminNotifications(JSON.parse(savedAdminNotifs));
-
-      const savedCompList = localStorage.getItem('monneyfact_companies_list');
-      if (savedCompList) setRegisteredCompanies(JSON.parse(savedCompList));
-    } catch (e) {
-      console.error(e);
-    }
+    return () => {
+      isSubscribed = false;
+    };
   }, [organization.id]);
 
   // Helper to persist company notifications STRICTLY SCOPED TO THIS ORGANIZATION ID
@@ -103,7 +179,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Add Company Notification (Tied strictly to organization.id)
+  // Add Company Notification
   const addCompanyNotif = (title: string, message: string, type: AppNotification['type'] = 'info', orgId: string = organization.id) => {
     const notif: AppNotification = {
       id: `cnotif-${Date.now()}`,
@@ -147,19 +223,59 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const unreadCompanyNotifCount = companyNotifications.filter((n) => !n.read).length;
   const unreadAdminNotifCount = adminNotifications.filter((n) => !n.read).length;
 
-  // --- ACTIONS ---
-  const addInvoice = (newInv: Omit<Invoice, 'id' | 'createdAt'>) => {
+  // --- ACTIONS WITH SUPABASE DB SYNC ---
+  const addInvoice = async (newInv: Omit<Invoice, 'id' | 'createdAt'>) => {
     const created: Invoice = {
       ...newInv,
       id: `inv-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
+
     const updated = [created, ...invoices];
     setInvoices(updated);
     try {
       localStorage.setItem('monneyfact_invoices', JSON.stringify(updated));
     } catch (e) {
       console.error(e);
+    }
+
+    // DIRECT SYNC TO SUPABASE DB PUBLIC.INVOICES FOR WHATSAPP PUBLIC GUEST LINKS
+    try {
+      const { error: invErr } = await supabase.from('invoices').upsert({
+        id: created.id,
+        invoice_number: created.invoiceNumber,
+        organization_id: created.organizationId || organization.id,
+        client_name: created.clientName,
+        client_email: created.clientEmail,
+        status: created.status,
+        issue_date: created.issueDate,
+        due_date: created.dueDate,
+        subtotal: created.subtotal,
+        tax_rate: created.taxRate,
+        tax_amount: created.taxAmount,
+        total: created.total,
+        notes: created.notes,
+        observations: created.observations || '',
+        signature_url: created.signatureUrl || '',
+        payment_token: created.id,
+      }, { onConflict: 'id' });
+
+      if (invErr) {
+        console.warn('Supabase invoice insert warning:', invErr);
+      }
+
+      if (created.items && created.items.length > 0) {
+        const itemRows = created.items.map((item) => ({
+          invoice_id: created.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          line_total: item.lineTotal,
+        }));
+        await supabase.from('invoice_items').insert(itemRows);
+      }
+    } catch (dbErr) {
+      console.error('Database sync error:', dbErr);
     }
 
     addCompanyNotif(
@@ -169,7 +285,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  const updateInvoiceStatus = (id: string, status: Invoice['status']) => {
+  const updateInvoiceStatus = async (id: string, status: Invoice['status']) => {
     const target = invoices.find((i) => i.id === id);
     const updated = invoices.map((inv) => (inv.id === id ? { ...inv, status } : inv));
     setInvoices(updated);
@@ -178,6 +294,17 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.error(e);
     }
+
+    // SYNC STATUS TO SUPABASE DB
+    try {
+      await supabase
+        .from('invoices')
+        .update({ status, paid_at: status === 'paid' ? new Date().toISOString() : null })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('Supabase update error:', err);
+    }
+
     if (target) {
       addCompanyNotif(
         'Statut Facture Mis à Jour',
@@ -187,7 +314,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const deleteInvoice = (id: string) => {
+  const deleteInvoice = async (id: string) => {
     const target = invoices.find((i) => i.id === id);
     const updated = invoices.filter((inv) => inv.id !== id);
     setInvoices(updated);
@@ -196,6 +323,13 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.error(e);
     }
+
+    try {
+      await supabase.from('invoices').delete().eq('id', id);
+    } catch (err) {
+      console.warn('Supabase delete error:', err);
+    }
+
     if (target) {
       addCompanyNotif('Facture Supprimée', `La facture ${target.invoiceNumber} a été retirée.`, 'warning');
     }
