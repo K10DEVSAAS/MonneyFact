@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { Logo } from '@/components/ui/Logo';
 
@@ -10,14 +10,21 @@ export default function LoginPage() {
   const { loginAsClient, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleCredentialsLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
+
     if (!email.trim()) {
-      alert('Veuillez saisir votre adresse email.');
+      setErrorMessage('Veuillez saisir votre adresse email.');
       return;
     }
-    loginAsClient(email);
+
+    const result = loginAsClient(email);
+    if (!result.success && result.error) {
+      setErrorMessage(result.error);
+    }
   };
 
   return (
@@ -47,6 +54,14 @@ export default function LoginPage() {
             Accédez à vos factures, clients et bilans en Côte d&apos;Ivoire.
           </p>
         </div>
+
+        {/* DELETED ACCOUNT OR AUTH ERROR BANNER (POINT 5) */}
+        {errorMessage && (
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-semibold flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Official Google OAuth 2.0 Button */}
         <button
@@ -130,7 +145,7 @@ export default function LoginPage() {
         <div className="text-center text-xs text-zinc-400 pt-2 border-t border-zinc-800">
           <span>Pas encore de compte ? </span>
           <Link href="/signup" className="text-orange-400 font-bold hover:underline">
-            S&apos;inscrire gratuitement
+            S&apos;inscrire
           </Link>
         </div>
       </div>

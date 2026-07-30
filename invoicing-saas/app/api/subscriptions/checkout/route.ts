@@ -9,18 +9,17 @@ export async function POST(request: Request) {
 
     const { companyId, companyEmail, targetPlan, paymentChannel, phone } = body;
 
-    if (!targetPlan || (targetPlan !== 'Pro' && targetPlan !== 'Business')) {
+    if (!targetPlan || (targetPlan !== 'Basique' && targetPlan !== 'Pro')) {
       return NextResponse.json({ success: false, error: 'Plan cible invalide.' }, { status: 400 });
     }
 
-    const price = targetPlan === 'Business' ? 15000 : 5000;
+    const price = targetPlan === 'Pro' ? 5000 : 1000;
     const expiresAt = subscriptionService.calculateExpirationDate('monthly');
 
-    // Simulate / Process payment verification
-    // 1. Payment Verification (Anti-double payment & CinetPay validation)
+    // Process payment verification
     const transactionId = `SUB-TX-${Date.now()}`;
 
-    // 2. Update company organization in Supabase DB with new Plan & Expiration Date
+    // Update company organization in Supabase DB with new Plan & Expiration Date
     const validOrgId = companyId && /^[0-9a-f-]{36}$/i.test(companyId)
       ? companyId
       : 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
       console.warn('[API SUBSCRIPTION CHECKOUT] Supabase update notice:', updateErr);
     }
 
-    // 3. Log Notification for Super Admin
+    // Log Notification for Super Admin
     await supabase.from('notifications').insert({
       organization_id: validOrgId,
       title: `Abonnement ${targetPlan} Activé ! 🎉`,

@@ -30,7 +30,7 @@ export default function NewInvoicePage() {
   const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState('');
 
-  const isBusinessPlan = organization.plan === 'Business';
+  const isProPlan = organization.plan === 'Pro';
 
   useEffect(() => {
     try {
@@ -129,12 +129,12 @@ export default function NewInvoicePage() {
     try {
       const generatedNumber = `FAC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      const chosenSub = isBusinessPlan ? subsidiariesList.find((s) => s.id === selectedSubsidiaryId) : undefined;
+      const chosenSub = isProPlan ? subsidiariesList.find((s) => s.id === selectedSubsidiaryId) : undefined;
 
       await addInvoice({
         invoiceNumber: generatedNumber,
         organizationId: organization.id,
-        subsidiaryId: isBusinessPlan ? (selectedSubsidiaryId || undefined) : undefined,
+        subsidiaryId: isProPlan ? (selectedSubsidiaryId || undefined) : undefined,
         subsidiaryName: chosenSub?.name || undefined,
         clientId: selectedClientId || `cli-temp-${Date.now()}`,
         clientName,
@@ -192,7 +192,7 @@ export default function NewInvoicePage() {
             </div>
 
             {/* Issuer Branch / Sub-company Selector - ONLY RENDERED FOR BUSINESS PLAN WITH > 0 REGISTERED SUB-COMPANIES */}
-            {isBusinessPlan && subsidiariesList.length > 0 && (
+            {isProPlan && subsidiariesList.length > 0 && (
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
                 <select

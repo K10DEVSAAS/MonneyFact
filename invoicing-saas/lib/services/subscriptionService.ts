@@ -1,5 +1,4 @@
-import { PlanType, Organization } from '../types/invoice';
-import { supabase } from '../supabase/client';
+import { PlanType } from '../types/invoice';
 
 export interface SubscriptionRecord {
   companyId: string;
@@ -22,61 +21,49 @@ export interface AdminAuditLog {
 }
 
 export const PLAN_PRICES: Record<PlanType, number> = {
-  Découverte: 0,
+  Basique: 1000,
   Pro: 5000,
-  Business: 15000,
 };
 
 export const PLAN_LIMITS = {
-  Découverte: {
-    maxInvoicesPerMonth: 5,
-    maxClients: 5,
+  Basique: {
+    maxInvoicesPerMonth: 10,
+    maxClients: 10,
     customLogo: false,
-    multiUser: false,
-    multiCompany: false,
-    excelExport: false,
-    smsReminders: false,
+    advancedQuotes: false,
+    advancedAnalytics: false,
+    paymentTracking: false,
   },
   Pro: {
     maxInvoicesPerMonth: Infinity,
     maxClients: Infinity,
     customLogo: true,
-    multiUser: false,
-    multiCompany: false,
-    excelExport: false,
-    smsReminders: false,
-  },
-  Business: {
-    maxInvoicesPerMonth: Infinity,
-    maxClients: Infinity,
-    customLogo: true,
-    multiUser: true,
-    multiCompany: true,
-    excelExport: true,
-    smsReminders: true,
+    advancedQuotes: true,
+    advancedAnalytics: true,
+    paymentTracking: true,
   },
 };
 
 export const subscriptionService = {
   // Check if invoice creation is allowed under current plan limits
-  canCreateInvoice(plan: PlanType = 'Pro', monthlyInvoiceCount: number): { allowed: boolean; reason?: string } {
-    const limit = PLAN_LIMITS[plan]?.maxInvoicesPerMonth || Infinity;
+  canCreateInvoice(plan: PlanType = 'Basique', monthlyInvoiceCount: number): { allowed: boolean; reason?: string } {
+    const limit = PLAN_LIMITS[plan]?.maxInvoicesPerMonth || 10;
     if (monthlyInvoiceCount >= limit) {
       return {
         allowed: false,
-        reason: `Limite de ${limit} factures/mois atteinte pour le Plan ${plan}. Passez au Plan Pro (5.000 FCFA) pour débloquer la facturation illimitée !`,
+        reason: `Limite de ${limit} factures/mois atteinte pour le Plan Basique (1 000 FCFA). Passez au Plan Pro (5 000 FCFA/mois) pour facturer en illimité !`,
       };
     }
     return { allowed: true };
   },
 
   // Check if client creation is allowed under current plan limits
-  canCreateClient(plan: PlanType = 'Pro', currentClientCount: number): { allowed: boolean; reason?: string } {
-    const limit = PLAN_LIMITS[plan]?.maxClients || Infinity;
+  canCreateClient(plan: PlanType = 'Basique', currentClientCount: number): { allowed: boolean; reason?: string } {
+    const limit = PLAN_LIMITS[plan]?.maxClients || 10;
     if (currentClientCount >= limit) {
       return {
         allowed: false,
-        reason: `Limite de ${limit} clients atteinte pour le Plan ${plan}. Passez au Plan Pro pour ajouter des clients en illimité !`,
+        reason: `Limite de ${limit} clients atteinte pour le Plan Basique (1 000 FCFA). Passez au Plan Pro (5 000 FCFA/mois) pour ajouter des clients en illimité !`,
       };
     }
     return { allowed: true };
@@ -101,14 +88,13 @@ export const subscriptionService = {
   },
 
   // Check if subscription is expired
-  isSubscriptionExpired(expiresAt?: string, plan: PlanType = 'Pro'): boolean {
-    if (plan === 'Découverte') return false; // Plan Découverte ne s'expire jamais
+  isSubscriptionExpired(expiresAt?: string): boolean {
     if (!expiresAt) return false;
     const now = new Date();
     return new Date(expiresAt) < now;
   },
 
-  // Process automatic expirations and downgrade expired subscriptions to Découverte
+  // Process automatic expirations
   processExpirations(companies: SubscriptionRecord[]): { updated: SubscriptionRecord[]; expiredCount: number } {
     const now = new Date();
     let expiredCount = 0;
@@ -116,13 +102,11 @@ export const subscriptionService = {
     const updated = companies.map((c) => {
       if (c.status === 'active' && c.expiresAt) {
         const expDate = new Date(c.expiresAt);
-        if (expDate < now && c.plan !== 'Découverte') {
+        if (expDate < now) {
           expiredCount++;
           return {
             ...c,
-            plan: 'Découverte' as PlanType,
             status: 'expired' as const,
-            amount: 0,
           };
         }
       }

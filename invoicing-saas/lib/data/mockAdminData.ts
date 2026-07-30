@@ -4,7 +4,7 @@ export interface RegisteredCompany {
   ownerName: string;
   ownerEmail: string;
   city: string;
-  plan: 'Gratuit' | 'Pro' | 'Business';
+  plan: 'Basique' | 'Pro';
   status: 'active' | 'overdue' | 'suspended';
   registeredAt: string;
   totalInvoiced: number; // Volume facturé sur MonneyFact

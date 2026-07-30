@@ -16,7 +16,7 @@ function SignupFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawPlan = searchParams?.get('plan') || 'Pro';
-  const initialPlan: PlanType = rawPlan === 'free' || rawPlan === 'decouverte' ? 'Découverte' : rawPlan === 'business' ? 'Business' : 'Pro';
+  const initialPlan: PlanType = rawPlan === 'basique' || rawPlan === 'basic' ? 'Basique' : 'Pro';
 
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
@@ -32,7 +32,7 @@ function SignupFormContent() {
   const [phone, setPhone] = useState('+225 07 00 00 00 00');
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  const price = selectedPlan === 'Business' ? 15000 : selectedPlan === 'Pro' ? 5000 : 0;
+  const price = selectedPlan === 'Pro' ? 5000 : 1000;
 
   // REINFORCED REGISTRATION VALIDATION (POINT 6)
   const validateForm = (): boolean => {
@@ -85,14 +85,7 @@ function SignupFormContent() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Cas 1: Plan Découverte (0 FCFA) -> Direct Signup without payment
-    if (selectedPlan === 'Découverte') {
-      initializeZeroAccount(companyName, email, 'Découverte');
-      registerClient(companyName, email, 'Découverte');
-      return;
-    }
-
-    // Cas 2 & 3: Plan Pro (5 000 FCFA) ou Business (15 000 FCFA) -> Open Simulated Payment Modal
+    // Open Simulated Payment Modal for both Basique (1000 FCFA) & Pro (5000 FCFA)
     setPaymentModalOpen(true);
   };
 
@@ -188,31 +181,38 @@ function SignupFormContent() {
         <span className="bg-zinc-950 px-3 text-[10px] uppercase font-bold text-zinc-500 shrink-0">ou avec email</span>
       </div>
 
-      {/* Plan Selection Cards */}
+      {/* 2-Plan Selection Cards (Basique 1000 FCFA vs Pro 5000 FCFA) */}
       <div className="space-y-2">
         <label className="block text-xs font-bold text-zinc-300">Choisissez votre formule d&apos;abonnement *</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           {[
-            { id: 'Découverte', label: 'Découverte', price: '0 FCFA' },
-            { id: 'Pro', label: 'Plan Pro', price: '5 000 FCFA/m', badge: 'Recommandé' },
-            { id: 'Business', label: 'Business', price: '15 000 FCFA/m' },
+            { id: 'Basique', label: 'Plan Basique', price: '1 000 FCFA/m', desc: 'Factures & PDF simples' },
+            { id: 'Pro', label: 'Plan Pro ⚡', price: '5 000 FCFA/m', desc: 'Illimité & Dashboard avancé', badge: 'Recommandé' },
           ].map((plan) => (
             <button
               key={plan.id}
               type="button"
               onClick={() => setSelectedPlan(plan.id as PlanType)}
-              className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
+              className={`p-4 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                 selectedPlan === plan.id
                   ? 'bg-orange-950/60 border-orange-500 text-white ring-2 ring-orange-500/30 shadow-md'
                   : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
               }`}
             >
               <div>
-                <span className="text-xs font-bold block">{plan.label}</span>
-                <span className="text-[11px] font-mono font-semibold text-orange-400">{plan.price}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-extrabold text-white block">{plan.label}</span>
+                  {plan.badge && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                      {plan.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-mono font-black text-orange-400 block mt-1">{plan.price}</span>
+                <span className="text-[10px] text-zinc-500 mt-1 block">{plan.desc}</span>
               </div>
               {selectedPlan === plan.id && (
-                <div className="mt-2 text-right">
+                <div className="mt-3 text-right">
                   <Check className="w-4 h-4 text-emerald-400 inline-block" />
                 </div>
               )}
@@ -296,14 +296,12 @@ function SignupFormContent() {
           type="submit"
           className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
         >
-          <span>
-            {selectedPlan === 'Découverte' ? "S'inscrire (Formule Découverte Gratuit)" : `Procéder au paiement (${price.toLocaleString()} FCFA)`}
-          </span>
+          <span>S&apos;inscrire et régler ({price.toLocaleString()} FCFA/mois)</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </form>
 
-      {/* SIMULATED PAYMENT MODAL FOR PRO / BUSINESS PLANS */}
+      {/* SIMULATED PAYMENT MODAL FOR BASIQUE & PRO PLANS */}
       {paymentModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="max-w-md w-full bg-zinc-900 rounded-3xl border border-zinc-800 p-6 space-y-5 text-zinc-100 shadow-2xl">

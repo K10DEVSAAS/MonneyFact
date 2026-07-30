@@ -32,7 +32,7 @@ export default function DashboardLayout({
       isAuthenticated &&
       organization &&
       (organization.status === 'expired' ||
-        subscriptionService.isSubscriptionExpired(organization.expiresAt, organization.plan))
+        subscriptionService.isSubscriptionExpired(organization.expiresAt))
     ) {
       router.push('/renewal');
     }

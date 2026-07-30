@@ -3,11 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Receipt, AlertTriangle, Check, CreditCard, ShieldCheck, Smartphone, RefreshCw, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Check, CreditCard, ShieldCheck, Smartphone, RefreshCw, ArrowRight } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { paymentProvider, PaymentChannel } from '@/lib/services/paymentService';
 import { subscriptionService } from '@/lib/services/subscriptionService';
 import { PlanType } from '@/lib/types/invoice';
+import { Logo } from '@/components/ui/Logo';
 
 export default function RenewalPage() {
   const router = useRouter();
@@ -19,21 +20,11 @@ export default function RenewalPage() {
   const [phone, setPhone] = useState(organization.phone || '+225 07 00 00 00 00');
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  const price = selectedPlan === 'Business' ? 15000 : selectedPlan === 'Pro' ? 5000 : 0;
+  const price = selectedPlan === 'Pro' ? 5000 : 1000;
 
   const handleSelectPlan = (plan: PlanType) => {
     setSelectedPlan(plan);
-    if (plan === 'Découverte') {
-      // Free plan reactivation
-      updateOrganization({
-        plan: 'Découverte',
-        status: 'active',
-        expiresAt: undefined,
-      });
-      router.push('/dashboard');
-    } else {
-      setPaymentModalOpen(true);
-    }
+    setPaymentModalOpen(true);
   };
 
   const handleSimulatePayment = async () => {
@@ -77,12 +68,9 @@ export default function RenewalPage() {
       <div className="w-full max-w-xl bg-zinc-900 rounded-3xl border border-zinc-800 p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in">
         {/* Header Branding */}
         <div className="text-center space-y-3">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold shadow-md shadow-orange-600/30">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <span className="font-extrabold text-2xl text-white tracking-tight">MonneyFact</span>
-          </Link>
+          <div className="flex justify-center">
+            <Logo variant="dark" size="lg" href="/" />
+          </div>
 
           <div className="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/30">
             <AlertTriangle className="w-7 h-7" />
@@ -97,11 +85,10 @@ export default function RenewalPage() {
         {/* Plan Selection Cards */}
         <div className="space-y-3">
           <label className="block text-xs font-bold text-zinc-300">Sélectionnez la formule de renouvellement :</label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             {[
-              { id: 'Découverte', label: 'Découverte', price: '0 FCFA', desc: '5 factures/m, 5 clients' },
-              { id: 'Pro', label: 'Plan Pro', price: '5 000 FCFA/m', desc: 'Factures & clients illimités' },
-              { id: 'Business', label: 'Business', price: '15 000 FCFA/m', desc: 'Multi-comptables & filiales' },
+              { id: 'Basique', label: 'Plan Basique', price: '1 000 FCFA/m', desc: '10 factures/m, clients essentiels' },
+              { id: 'Pro', label: 'Plan Pro ⚡', price: '5 000 FCFA/m', desc: 'Factures, devis & clients illimités' },
             ].map((p) => (
               <button
                 key={p.id}

@@ -22,11 +22,12 @@ interface AuthContextType {
   role: UserRole;
   isAuthenticated: boolean;
   isLoadingSession: boolean;
-  loginAsClient: (email?: string) => void;
+  loginAsClient: (email?: string) => { success: boolean; error?: string };
   loginAsAdmin: () => void;
   registerClient: (companyName: string, email: string, plan: PlanType) => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
+  isAccountDeleted: (email: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,13 +38,28 @@ const DEMO_ADMIN: UserSession = {
   email: 'admin@monneyfact.ci',
   role: 'super_admin',
   companyName: 'MonneyFact Inc. Côte d\'Ivoire',
-  plan: 'Business',
+  plan: 'Pro',
 };
 
-// Helper function to resolve stored plan for an email
+// Check if an email is registered under a deleted company (Point 5)
+function checkAccountDeleted(email?: string): boolean {
+  if (!email) return false;
+  try {
+    const deletedStr = localStorage.getItem('monneyfact_deleted_companies');
+    if (deletedStr) {
+      const deletedEmails: string[] = JSON.parse(deletedStr);
+      return deletedEmails.map((e) => e.toLowerCase()).includes(email.toLowerCase());
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return false;
+}
+
+// Helper function to resolve stored plan for an email (Default to 'Basique' or 'Pro')
 function resolveUserPlan(email?: string): PlanType {
-  if (!email) return 'Découverte';
-  if (email.toLowerCase() === 'admin@monneyfact.ci') return 'Business';
+  if (!email) return 'Basique';
+  if (email.toLowerCase() === 'admin@monneyfact.ci') return 'Pro';
 
   try {
     const savedStr = localStorage.getItem('monneyfact_companies_list');
@@ -54,13 +70,13 @@ function resolveUserPlan(email?: string): PlanType {
                (c.email && c.email.toLowerCase() === email.toLowerCase())
       );
       if (found && found.plan) {
-        return found.plan === 'Gratuit' ? 'Découverte' : found.plan;
+        return found.plan === 'Pro' ? 'Pro' : 'Basique';
       }
     }
   } catch (e) {
     console.error(e);
   }
-  return 'Découverte';
+  return 'Basique';
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -85,7 +101,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedUser = localStorage.getItem('monneyfact_active_user');
       if (savedUser && isMounted) {
         const parsed: UserSession = JSON.parse(savedUser);
-        // Ensure plan is synced with company record
+        // Check if account was deleted (Point 5)
+        if (checkAccountDeleted(parsed.email)) {
+          localStorage.removeItem('monneyfact_active_user');
+          setUser(null);
+          setIsLoadingSession(false);
+          return;
+        }
+
+        // Ensure plan is synced with company record (Basique or Pro)
         parsed.plan = resolveUserPlan(parsed.email);
         setUser(parsed);
         setIsLoadingSession(false);
@@ -100,6 +124,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user && isMounted) {
           const email = session.user.email || '';
+
+          if (checkAccountDeleted(email)) {
+            await supabase.auth.signOut();
+            localStorage.removeItem('monneyfact_active_user');
+            setUser(null);
+            return;
+          }
+
           const name = session.user.user_metadata?.full_name || email.split('@')[0];
           const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
           const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
@@ -130,6 +162,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session && session.user && isMounted) {
         const email = session.user.email || '';
+
+        if (checkAccountDeleted(email)) {
+          supabase.auth.signOut();
+          localStorage.removeItem('monneyfact_active_user');
+          setUser(null);
+          return;
+        }
+
         const name = session.user.user_metadata?.full_name || email.split('@')[0];
         const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
         const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
@@ -159,8 +199,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const loginAsClient = (email?: string) => {
+  const loginAsClient = (email?: string): { success: boolean; error?: string } => {
     const normalizedEmail = (email || '').toLowerCase().trim();
+
+    // Point 5: Check if company account is deleted
+    if (checkAccountDeleted(normalizedEmail)) {
+      return {
+        success: false,
+        error: "Ce compte n'existe plus. Veuillez créer un nouveau compte.",
+      };
+    }
+
     const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
     const actualPlan = resolveUserPlan(email);
 
@@ -182,6 +231,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       router.push('/dashboard');
     }
+
+    return { success: true };
   };
 
   const loginAsAdmin = () => {
@@ -192,6 +243,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const registerClient = (companyName: string, email: string, plan: PlanType) => {
+    // If re-registering after deletion, remove from deleted list
+    try {
+      const deletedStr = localStorage.getItem('monneyfact_deleted_companies');
+      if (deletedStr) {
+        const deleted: string[] = JSON.parse(deletedStr);
+        const updated = deleted.filter((e) => e.toLowerCase() !== email.toLowerCase());
+        localStorage.setItem('monneyfact_deleted_companies', JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
     const newUser: UserSession = {
       id: `usr-${Date.now()}`,
       name: companyName,
@@ -272,6 +335,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerClient,
         loginWithGoogle,
         logout,
+        isAccountDeleted: checkAccountDeleted,
       }}
     >
       {children}

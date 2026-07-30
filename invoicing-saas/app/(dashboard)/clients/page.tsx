@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, Building, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
 
@@ -11,8 +11,8 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const isDecouverte = organization.plan === 'Découverte';
-  const decouverteLimitReached = isDecouverte && clients.length >= 5;
+  const isBasique = organization.plan === 'Basique';
+  const basiqueLimitReached = isBasique && clients.length >= 10;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,8 +36,8 @@ export default function ClientsPage() {
       return;
     }
 
-    if (decouverteLimitReached) {
-      alert('Limite de 5 clients atteinte pour la formule Découverte. Passez au Plan Pro (5.000 FCFA) dans les Paramètres pour ajouter des clients illimités !');
+    if (basiqueLimitReached) {
+      alert('Limite de 10 clients atteinte pour le Plan Basique (1 000 FCFA). Passez au Plan Pro (5 000 FCFA/mois) dans les Paramètres pour ajouter des clients en illimité !');
       return;
     }
 
@@ -59,21 +59,21 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
-      {/* ALERT BANNER IF DÉCOUVERTE CLIENT LIMIT REACHED */}
-      {decouverteLimitReached && (
+      {/* ALERT BANNER IF BASIQUE CLIENT LIMIT REACHED */}
+      {basiqueLimitReached && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-900 text-xs font-semibold flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <p className="font-extrabold text-slate-900">Limite atteinte : Formule Découverte ({clients.length}/5 clients)</p>
-              <p className="text-slate-600">Vous avez atteint la limite de 5 clients sur la formule gratuite. Passez au Plan Pro pour ajouter des clients en illimité !</p>
+              <p className="font-extrabold text-slate-900">Limite atteinte : Plan Basique ({clients.length}/10 clients)</p>
+              <p className="text-slate-600">Vous avez atteint la limite de 10 clients sur le Plan Basique. Passez au Plan Pro pour ajouter des clients en illimité !</p>
             </div>
           </div>
           <Link
             href="/settings"
             className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shrink-0 shadow-xs"
           >
-            Passez au Plan Pro (5.000 FCFA)
+            Passez au Plan Pro (5 000 FCFA/m)
           </Link>
         </div>
       )}
@@ -87,15 +87,15 @@ export default function ClientsPage() {
           </p>
         </div>
 
-        {decouverteLimitReached ? (
+        {basiqueLimitReached ? (
           <button
             onClick={() =>
-              alert('Limite de 5 clients atteinte pour la formule Découverte. Passez au Plan Pro (5.000 FCFA) dans les Paramètres pour ajouter des clients illimités !')
+              alert('Limite de 10 clients atteinte pour le Plan Basique. Passez au Plan Pro (5 000 FCFA/m) dans les Paramètres pour ajouter des clients en illimité !')
             }
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
-            <span>Nouveau Client (Limite 5/5)</span>
+            <span>Nouveau Client (Limite 10/10)</span>
           </button>
         ) : (
           <button

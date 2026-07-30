@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState(organization.phone || '+225 07 00 00 00 00');
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  const targetPrice = targetPlan === 'Business' ? 15000 : targetPlan === 'Pro' ? 5000 : 0;
+  const targetPrice = targetPlan === 'Pro' ? 5000 : 1000;
 
   const [org, setOrg] = useState({
     name: organization.name,
@@ -62,15 +62,8 @@ export default function SettingsPage() {
 
   const handleInitiatePlanChange = (newPlan: PlanType) => {
     if (newPlan === currentPlan) return;
-
-    if (newPlan === 'Découverte') {
-      setCurrentPlan('Découverte');
-      updateOrganization({ plan: 'Découverte', status: 'active', expiresAt: undefined });
-      alert('Votre formule a été modifiée vers le Plan Découverte.');
-    } else {
-      setTargetPlan(newPlan);
-      setPaymentModalOpen(true);
-    }
+    setTargetPlan(newPlan);
+    setPaymentModalOpen(true);
   };
 
   const handleSimulatePayment = async () => {
@@ -94,7 +87,7 @@ export default function SettingsPage() {
           expiresAt: newExpiresAt,
         });
 
-        alert(`Paiement simulé réussi ! Votre abonnement a été sur-classé vers la formule ${targetPlan}.`);
+        alert(`Paiement simulé réussi ! Votre abonnement a été basculé vers la formule ${targetPlan}.`);
         setPaymentModalOpen(false);
       } else {
         alert('Erreur lors de la simulation du règlement. Veuillez réessayer.');
@@ -130,7 +123,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* SUBSCRIPTION PLAN SELECTION SECTION (POINT 12) */}
+      {/* SUBSCRIPTION PLAN SELECTION SECTION */}
       <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div className="flex items-center gap-3">
@@ -144,62 +137,57 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {currentPlan === 'Business' && (
-              <span className="px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
-                <Crown className="w-3.5 h-3.5 text-amber-400" />
-                <span>Plan Business (15.000 FCFA/m)</span>
-              </span>
-            )}
             {currentPlan === 'Pro' && (
               <span className="px-3.5 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Premium Pro (5.000 FCFA/m)</span>
+                <span>Plan Pro (5.000 FCFA/m)</span>
               </span>
             )}
-            {currentPlan === 'Découverte' && (
+            {currentPlan === 'Basique' && (
               <span className="px-3.5 py-1.5 bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-bold rounded-full">
-                Formule Découverte (0 FCFA)
+                Plan Basique (1.000 FCFA/m)
               </span>
             )}
           </div>
         </div>
 
-        {/* Responsive Pricing Cards (Point 12) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-          {/* Plan Découverte */}
+        {/* 2-Plan Comparison Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+          {/* Plan Basique */}
           <div
-            onClick={() => handleInitiatePlanChange('Découverte')}
+            onClick={() => handleInitiatePlanChange('Basique')}
             className={`p-6 rounded-3xl border cursor-pointer transition-all space-y-4 relative flex flex-col justify-between ${
-              currentPlan === 'Découverte'
+              currentPlan === 'Basique'
                 ? 'bg-zinc-900 border-orange-500 ring-2 ring-orange-500/30'
                 : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
             }`}
           >
             <div className="space-y-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
-                Débutant / Gratuit
+                Essentiel / Facturation Simplifiée
               </span>
-              <h4 className="font-extrabold text-white text-base">Découverte</h4>
-              <p className="text-2xl font-black font-mono text-orange-400">0 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
-              <p className="text-[11px] text-zinc-400">Pour tester MoneyFact sans engagement.</p>
+              <h4 className="font-extrabold text-white text-base">Plan Basique</h4>
+              <p className="text-2xl font-black font-mono text-orange-400">1 000 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
+              <p className="text-[11px] text-zinc-400">Pour gérer simplement vos premières factures.</p>
             </div>
 
             <ul className="text-[11px] text-zinc-300 space-y-2 pt-4 border-t border-zinc-800">
-              <li className="flex items-center gap-2">✓ Max 5 factures / mois</li>
-              <li className="flex items-center gap-2">✓ Max 5 clients dans le répertoire</li>
+              <li className="flex items-center gap-2">✓ Max 10 factures par mois</li>
+              <li className="flex items-center gap-2">✓ Max 10 clients dans le répertoire</li>
               <li className="flex items-center gap-2">✓ Calcul automatique TVA 18%</li>
-              <li className="flex items-center gap-2">✓ Export PDF simple</li>
+              <li className="flex items-center gap-2">✓ Génération PDF simple</li>
+              <li className="flex items-center gap-2">✓ Consultation de l&apos;historique</li>
             </ul>
 
             <button
               type="button"
               className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all ${
-                currentPlan === 'Découverte'
+                currentPlan === 'Basique'
                   ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30'
                   : 'bg-zinc-800 hover:bg-zinc-700 text-white'
               }`}
             >
-              {currentPlan === 'Découverte' ? '✓ Formule Actuelle' : 'Choisir Découverte'}
+              {currentPlan === 'Basique' ? '✓ Formule Actuelle' : 'Choisir Plan Basique'}
             </button>
           </div>
 
@@ -215,19 +203,21 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 w-max">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Recommandé Entrepreneurs</span>
+                <span>Recommandé - Fonctionnalités Avancées</span>
               </span>
-              <h4 className="font-extrabold text-white text-base">Premium Pro ⚡</h4>
+              <h4 className="font-extrabold text-white text-base">Plan Pro ⚡</h4>
               <p className="text-2xl font-black font-mono text-orange-400">5 000 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
-              <p className="text-[11px] text-zinc-400">Facturez en illimité et gérez votre entreprise.</p>
+              <p className="text-[11px] text-zinc-400">Tout l&apos;arsenal professionnel pour piloter votre entreprise.</p>
             </div>
 
             <ul className="text-[11px] text-zinc-300 space-y-2 pt-4 border-t border-zinc-800">
               <li className="flex items-center gap-2 font-semibold text-white">✓ Factures & Devis Illimités</li>
-              <li className="flex items-center gap-2 font-semibold text-white">✓ Clients Illimités</li>
-              <li className="flex items-center gap-2">✓ Numéro NCC & Mentions Légales</li>
-              <li className="flex items-center gap-2">✓ Lien de paiement Wave / MoMo</li>
-              <li className="flex items-center gap-2">✓ Support prioritaire WhatsApp</li>
+              <li className="flex items-center gap-2 font-semibold text-white">✓ Conversion Devis ➔ Facture</li>
+              <li className="flex items-center gap-2 font-semibold text-white">✓ Clients Illimités & Historique Détaillé</li>
+              <li className="flex items-center gap-2">✓ Suivi des règlements (Wave, OM, MTN, Espèces, Virement)</li>
+              <li className="flex items-center gap-2">✓ Dashboard analytique avec courbes & comparaisons</li>
+              <li className="flex items-center gap-2">✓ Modèles professionnels & PDF haute résolution</li>
+              <li className="flex items-center gap-2">✓ Exportation comptable Excel (.xlsx / .csv)</li>
             </ul>
 
             <button
@@ -241,45 +231,6 @@ export default function SettingsPage() {
               {currentPlan === 'Pro' ? '✓ Formule Actuelle' : 'Basculer vers le Plan Pro'}
             </button>
           </div>
-
-          {/* Plan Business */}
-          <div
-            onClick={() => handleInitiatePlanChange('Business')}
-            className={`p-6 rounded-3xl border cursor-pointer transition-all space-y-4 relative flex flex-col justify-between ${
-              currentPlan === 'Business'
-                ? 'bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/30 shadow-xl'
-                : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-            }`}
-          >
-            <div className="space-y-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 w-max">
-                <Crown className="w-3 h-3 text-amber-400" />
-                <span>Sociétés & Agences</span>
-              </span>
-              <h4 className="font-extrabold text-white text-base">Business 🚀</h4>
-              <p className="text-2xl font-black font-mono text-orange-400">15 000 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
-              <p className="text-[11px] text-zinc-400">Pour les équipes avec comptables et agences.</p>
-            </div>
-
-            <ul className="text-[11px] text-zinc-300 space-y-2 pt-4 border-t border-zinc-800">
-              <li className="flex items-center gap-2 font-semibold text-amber-300">✓ Tout le contenu du Plan Pro</li>
-              <li className="flex items-center gap-2 font-semibold text-amber-300">✓ Multi-collaborateurs & Comptables</li>
-              <li className="flex items-center gap-2 font-semibold text-amber-300">✓ Multi-entreprises & Agences</li>
-              <li className="flex items-center gap-2">✓ Relances SMS & Email automatiques</li>
-              <li className="flex items-center gap-2">✓ Export comptable Excel (.xlsx / .csv)</li>
-            </ul>
-
-            <button
-              type="button"
-              className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all ${
-                currentPlan === 'Business'
-                  ? 'bg-amber-500 text-zinc-950 font-black shadow-md'
-                  : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black'
-              }`}
-            >
-              {currentPlan === 'Business' ? '✓ Formule Actuelle' : 'Basculer vers Business'}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -291,9 +242,9 @@ export default function SettingsPage() {
               <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
                 <CreditCard className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-black text-white">Sur-classement d&apos;Abonnement</h3>
+              <h3 className="text-lg font-black text-white">Changement de Formule d&apos;Abonnement</h3>
               <p className="text-xs text-zinc-400">
-                Passez au <strong className="text-white font-bold">{targetPlan}</strong> — Montant : <strong className="text-orange-400 font-mono font-bold text-sm">{targetPrice.toLocaleString()} FCFA/m</strong>
+                Basculer vers le <strong className="text-white font-bold">{targetPlan}</strong> — Montant : <strong className="text-orange-400 font-mono font-bold text-sm">{targetPrice.toLocaleString()} FCFA/m</strong>
               </p>
             </div>
 

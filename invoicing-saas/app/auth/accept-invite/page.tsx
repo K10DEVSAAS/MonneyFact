@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Receipt, CheckCircle2, UserCheck, ShieldCheck, ArrowRight, Building } from 'lucide-react';
+import { CheckCircle2, UserCheck, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
+import { Logo } from '@/components/ui/Logo';
 
 function AcceptInviteContent() {
   const router = useRouter();
@@ -19,19 +20,16 @@ function AcceptInviteContent() {
   const handleAccept = () => {
     setAccepted(true);
     setTimeout(() => {
-      registerClient(`${organization.name} Member`, 'collaborateur@entreprise.ci', organization.plan || 'Business');
+      registerClient(`${organization.name} Member`, 'collaborateur@entreprise.ci', organization.plan || 'Pro');
       router.push('/dashboard');
     }, 1500);
   };
 
   return (
     <div className="w-full max-w-md bg-zinc-900 rounded-3xl border border-zinc-800 p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in text-zinc-100 text-center">
-      <Link href="/" className="inline-flex items-center gap-2 group">
-        <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold shadow-md shadow-orange-600/30">
-          <Receipt className="w-5 h-5" />
-        </div>
-        <span className="font-extrabold text-2xl text-white tracking-tight">MonneyFact</span>
-      </Link>
+      <div className="flex justify-center">
+        <Logo variant="dark" size="lg" href="/" />
+      </div>
 
       {accepted ? (
         <div className="space-y-4 py-4">
@@ -63,7 +61,7 @@ function AcceptInviteContent() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-zinc-400 font-bold">Formule :</span>
-              <span className="text-orange-400 font-mono font-bold">Plan {organization.plan || 'Business'}</span>
+              <span className="text-orange-400 font-mono font-bold">Plan {organization.plan || 'Pro'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-zinc-400 font-bold">Jeton Invitation :</span>

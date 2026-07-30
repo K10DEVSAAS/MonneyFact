@@ -12,7 +12,7 @@ import {
   Building2,
   LogOut,
   UserCheck,
-  Crown,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
@@ -28,14 +28,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { organization, invoices, clients } = useAppStore();
 
-  const isBusinessPlan = organization.plan === 'Business';
+  const isPro = organization.plan === 'Pro';
 
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Factures', href: '/invoices', icon: FileText, badge: invoices.length > 0 ? invoices.length.toString() : undefined },
     { name: 'Clients', href: '/clients', icon: Users, badge: clients.length > 0 ? clients.length.toString() : undefined },
-    { name: 'Équipe & Comptables', href: '/team', icon: UserCheck, crownBadge: !isBusinessPlan },
-    { name: 'Multi-Entreprises', href: '/subsidiaries', icon: Building2, crownBadge: !isBusinessPlan },
+    { name: 'Équipe & Collaborateurs', href: '/team', icon: UserCheck, proBadge: !isPro },
+    { name: 'Multi-Agences / Filiales', href: '/subsidiaries', icon: Building2, proBadge: !isPro },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ];
 
@@ -107,10 +107,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   <span>{item.name}</span>
                 </div>
 
-                {item.crownBadge ? (
-                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    <Crown className="w-3 h-3 text-amber-400" />
-                    <span>Business</span>
+                {item.proBadge ? (
+                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <Zap className="w-3 h-3 text-emerald-400" />
+                    <span>Pro</span>
                   </span>
                 ) : item.badge ? (
                   <span

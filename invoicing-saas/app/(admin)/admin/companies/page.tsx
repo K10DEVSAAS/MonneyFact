@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Building2, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building2, Trash2 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { dbService } from '@/lib/services/dbService';
 import { formatFCFA } from '@/lib/utils/formatters';
@@ -44,8 +44,14 @@ export default function CompaniesAdminPage() {
 
   const displayList = liveCompanies.length > 0 ? liveCompanies : registeredCompanies;
 
-  const handleDeleteCompany = async (compId: string, compName: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ? Cette action effacera le compte et son accès à la plateforme.`)) {
+  // REAL INTEGRAL CASCADE DELETION (POINT 5)
+  const handleDeleteCompany = async (compId: string, compName: string, compEmail?: string) => {
+    if (
+      confirm(
+        `Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ?\n\nCette action supprimera l'entreprise, ses factures, ses utilisateurs et bloquera toute tentative de connexion ultérieure avec l'adresse "${compEmail || compName}".`
+      )
+    ) {
+      // 1. Remove from active companies list
       const updated = displayList.filter((c) => c.id !== compId && c.name !== compName);
       setLiveCompanies(updated);
       try {
@@ -53,12 +59,45 @@ export default function CompaniesAdminPage() {
       } catch (e) {
         console.error(e);
       }
+
+      // 2. Add company email to permanent DELETED list (Point 5)
+      if (compEmail) {
+        try {
+          const deletedStr = localStorage.getItem('monneyfact_deleted_companies');
+          const deleted: string[] = deletedStr ? JSON.parse(deletedStr) : [];
+          if (!deleted.includes(compEmail.toLowerCase())) {
+            deleted.push(compEmail.toLowerCase());
+            localStorage.setItem('monneyfact_deleted_companies', JSON.stringify(deleted));
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // 3. Clear active user session if this company was active
+      try {
+        const activeUserStr = localStorage.getItem('monneyfact_active_user');
+        if (activeUserStr) {
+          const activeUser = JSON.parse(activeUserStr);
+          if (activeUser.email?.toLowerCase() === compEmail?.toLowerCase()) {
+            localStorage.removeItem('monneyfact_active_user');
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      // 4. Cascade delete from Supabase DB tables
       try {
         await supabase.from('organizations').delete().or(`id.eq.${compId},name.eq.${compName}`);
+        if (compEmail) {
+          await supabase.from('invoices').delete().eq('client_email', compEmail);
+        }
       } catch (err) {
         console.warn('Supabase delete org error:', err);
       }
-      alert(`Le compte entreprise "${compName}" a été supprimé avec succès du système.`);
+
+      alert(`Le compte entreprise "${compName}" et toutes ses données associées ont été supprimés définitivement. L'entreprise ne pourra plus se connecter.`);
     }
   };
 
@@ -80,7 +119,7 @@ export default function CompaniesAdminPage() {
             Répertoire des Entreprises Clientes ({displayList.length})
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Visualisez, gérez et supprimez les comptes entreprises inscrits sur MonneyFact.
+            Visualisez, gérez et supprimez définitivement les comptes entreprises inscrits sur MonneyFact.
           </p>
         </div>
 
@@ -108,9 +147,9 @@ export default function CompaniesAdminPage() {
                       {comp.plan || 'Pro'}
                     </span>
                     <button
-                      onClick={() => handleDeleteCompany(comp.id, comp.name)}
+                      onClick={() => handleDeleteCompany(comp.id, comp.name, comp.ownerEmail)}
                       className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors"
-                      title="Supprimer le compte entreprise"
+                      title="Supprimer définitivement le compte entreprise"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

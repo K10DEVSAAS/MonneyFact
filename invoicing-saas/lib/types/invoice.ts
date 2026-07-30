@@ -2,7 +2,7 @@ export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
 
 export type PaymentChannel = 'wave' | 'orange_money' | 'mtn_momo' | 'moov' | 'card';
 
-export type PlanType = 'Découverte' | 'Pro' | 'Business';
+export type PlanType = 'Basique' | 'Pro';
 
 export type SubsidiaryType =
   | 'Siège Social'

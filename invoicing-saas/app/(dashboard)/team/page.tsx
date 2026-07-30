@@ -34,7 +34,7 @@ interface AuditLogEntry {
 
 export default function TeamPage() {
   const { organization } = useAppStore();
-  const isBusinessPlan = organization.plan === 'Business';
+  const isProPlan = organization.plan === 'Pro';
 
   const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
 
@@ -229,7 +229,7 @@ export default function TeamPage() {
       </div>
 
       {/* LOCK HERO BANNER IF NOT BUSINESS PLAN */}
-      {!isBusinessPlan ? (
+      {!isProPlan ? (
         <div className="p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-6 text-center relative overflow-hidden">
           <div className="w-16 h-16 rounded-3xl bg-orange-600/20 border border-orange-500/30 text-orange-400 flex items-center justify-center mx-auto">
             <Lock className="w-8 h-8 text-orange-500" />

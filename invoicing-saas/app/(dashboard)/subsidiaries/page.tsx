@@ -31,7 +31,7 @@ import { formatFCFA } from '@/lib/utils/formatters';
 export default function SubsidiariesPage() {
   const router = useRouter();
   const { organization, invoices, setActiveSubsidiaryId, activeSubsidiaryId } = useAppStore();
-  const isBusinessPlan = organization.plan === 'Business';
+  const isProPlan = organization.plan === 'Pro';
 
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -153,7 +153,7 @@ export default function SubsidiariesPage() {
       </div>
 
       {/* LOCK HERO BANNER IF NOT BUSINESS PLAN */}
-      {!isBusinessPlan ? (
+      {!isProPlan ? (
         <div className="p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-6 text-center relative overflow-hidden">
           <div className="w-16 h-16 rounded-3xl bg-orange-600/20 border border-orange-500/30 text-orange-400 flex items-center justify-center mx-auto">
             <Lock className="w-8 h-8 text-orange-500" />

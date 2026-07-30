@@ -36,7 +36,7 @@ interface AuditEntry {
 export default function AdminCockpitPage() {
   const { registeredCompanies } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlanFilter, setSelectedPlanFilter] = useState<'all' | 'Découverte' | 'Pro' | 'Business'>('all');
+  const [selectedPlanFilter, setSelectedPlanFilter] = useState<'all' | 'Basique' | 'Pro'>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'suspended' | 'expired'>('all');
 
   const [liveCompanies, setLiveCompanies] = useState<any[]>([]);
@@ -70,7 +70,7 @@ export default function AdminCockpitPage() {
 
         // 1. Add Local Store companies
         localList.forEach((c) => {
-          const planName = c.plan === 'Gratuit' ? 'Découverte' : (c.plan || 'Pro');
+          const planName = c.plan === 'Pro' ? 'Pro' : 'Basique';
           const price = PLAN_PRICES[planName as keyof typeof PLAN_PRICES] || 5000;
           const daysLeft = subscriptionService.calculateDaysRemaining(c.expiresAt);
 
@@ -393,7 +393,7 @@ export default function AdminCockpitPage() {
                     </td>
 
                     <td className="py-4 px-4 text-center font-mono font-bold">
-                      {comp.plan === 'Découverte' ? (
+                      {comp.plan === 'Basique' ? (
                         <span className="text-zinc-500">Illimité</span>
                       ) : (
                         <span className={comp.daysRemaining <= 5 ? 'text-amber-400' : 'text-emerald-400'}>

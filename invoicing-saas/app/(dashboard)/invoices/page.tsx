@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Filter, Eye, Download, FileText, Lock, Crown, Send, FileSpreadsheet, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Eye, Crown, Send, FileSpreadsheet, ShieldAlert, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA, formatDate } from '@/lib/utils/formatters';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -13,16 +13,16 @@ export default function InvoicesPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Lock Modal State for Business-only Features
+  // Lock Modal State for Pro-only Features
   const [lockModal, setLockModal] = useState<{ open: boolean; title: string; feature: string }>({
     open: false,
     title: '',
     feature: '',
   });
 
-  const isBusiness = organization.plan === 'Business';
-  const isDecouverte = organization.plan === 'Découverte';
-  const decouverteLimitReached = isDecouverte && invoices.length >= 5;
+  const isPro = organization.plan === 'Pro';
+  const isBasique = organization.plan === 'Basique';
+  const basiqueLimitReached = isBasique && invoices.length >= 10;
 
   const filteredInvoices = invoices.filter((inv) => {
     const matchesStatus = selectedStatus === 'all' || inv.status === selectedStatus;
@@ -40,13 +40,13 @@ export default function InvoicesPage() {
     { id: 'overdue', label: 'En retard', count: invoices.filter((i) => i.status === 'overdue').length },
   ];
 
-  // REAL WORKING EXCEL & CSV EXPORT GENERATOR
+  // EXCEL & CSV EXPORT GENERATOR
   const handleExcelExport = () => {
-    if (!isBusiness) {
+    if (!isPro) {
       setLockModal({
         open: true,
         title: 'Export Comptable Excel & CSV',
-        feature: "L'exportation comptable automatisée au format Excel (.xlsx) et CSV est une fonctionnalité exclusive au Plan Business (15.000 FCFA/mois).",
+        feature: "L'exportation comptable automatisée au format Excel (.xlsx) et CSV est une fonctionnalité réservée au Plan Pro (5.000 FCFA/mois).",
       });
       return;
     }
@@ -90,11 +90,11 @@ export default function InvoicesPage() {
   };
 
   const handleSmsReminder = (invoiceNumber: string, clientName: string) => {
-    if (!isBusiness) {
+    if (!isPro) {
       setLockModal({
         open: true,
         title: 'Relance Automatique SMS & Email',
-        feature: "La relance automatique multicanal (SMS & Email) des factures impayées est une fonctionnalité exclusive au Plan Business (15.000 FCFA/mois).",
+        feature: "La relance multicanal (SMS & Email) des factures est une fonctionnalité réservée au Plan Pro (5.000 FCFA/mois).",
       });
       return;
     }
@@ -103,21 +103,21 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
-      {/* ALERT BANNER IF DÉCOUVERTE LIMIT REACHED */}
-      {decouverteLimitReached && (
+      {/* ALERT BANNER IF BASIQUE LIMIT REACHED */}
+      {basiqueLimitReached && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-900 text-xs font-semibold flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <p className="font-extrabold text-slate-900">Limite atteinte : Formule Découverte ({invoices.length}/5 factures)</p>
-              <p className="text-slate-600">Vous avez atteint la limite de 5 factures sur la formule gratuite. Passez au Plan Pro pour facturer en illimité !</p>
+              <p className="font-extrabold text-slate-900">Limite atteinte : Plan Basique ({invoices.length}/10 factures)</p>
+              <p className="text-slate-600">Vous avez atteint la limite de 10 factures sur le Plan Basique (1 000 FCFA). Passez au Plan Pro pour facturer en illimité !</p>
             </div>
           </div>
           <Link
             href="/settings"
             className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shrink-0 shadow-xs"
           >
-            Passez au Plan Pro (5.000 FCFA)
+            Passez au Plan Pro (5 000 FCFA/m)
           </Link>
         </div>
       )}
@@ -139,19 +139,19 @@ export default function InvoicesPage() {
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <span>Export Comptable (.xlsx)</span>
-            {!isBusiness && <Crown className="w-3.5 h-3.5 text-amber-400" />}
+            {!isPro && <Sparkles className="w-3.5 h-3.5 text-amber-400" />}
           </button>
 
           {/* New Invoice Button */}
-          {decouverteLimitReached ? (
+          {basiqueLimitReached ? (
             <button
               onClick={() =>
-                alert('Limite de 5 factures/mois atteinte pour la formule Découverte. Passez au Plan Pro (5.000 FCFA) dans les Paramètres pour facturer en illimité !')
+                alert('Limite de 10 factures/mois atteinte pour le Plan Basique. Passez au Plan Pro (5.000 FCFA/m) dans les Paramètres pour facturer en illimité !')
               }
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
-              <span>Créer une Facture (Limite 5/5)</span>
+              <span>Créer une Facture (Limite 10/10)</span>
             </button>
           ) : (
             <Link
@@ -295,17 +295,17 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* LOCK FEATURE MODAL FOR BUSINESS PLAN */}
+      {/* LOCK FEATURE MODAL FOR PLAN PRO */}
       {lockModal.open && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="max-w-md w-full bg-zinc-900 rounded-3xl border border-zinc-800 p-6 space-y-5 text-zinc-100 shadow-2xl text-center">
             <div className="w-12 h-12 rounded-2xl bg-orange-600/20 text-orange-400 flex items-center justify-center mx-auto border border-orange-500/30">
-              <Crown className="w-6 h-6 text-amber-400" />
+              <Sparkles className="w-6 h-6 text-amber-400" />
             </div>
 
             <div className="space-y-2">
               <span className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-full">
-                👑 Exclusif au Plan Business (15.000 FCFA/mois)
+                ⚡ Exclusif au Plan Pro (5.000 FCFA/mois)
               </span>
               <h3 className="text-lg font-black text-white">{lockModal.title}</h3>
               <p className="text-xs text-zinc-400 leading-relaxed">{lockModal.feature}</p>
@@ -323,8 +323,8 @@ export default function InvoicesPage() {
                 href="/settings"
                 className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-2"
               >
-                <span>Passer au Plan Business</span>
-                <Crown className="w-4 h-4 text-amber-300" />
+                <span>Passer au Plan Pro</span>
+                <Sparkles className="w-4 h-4 text-amber-300" />
               </Link>
             </div>
           </div>
