@@ -15,19 +15,20 @@ import {
   ShieldCheck,
   Download,
   ArrowRight,
-  ShieldAlert,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA, formatDate } from '@/lib/utils/formatters';
 import { cinetpayService } from '@/lib/services/cinetpayService';
 import { PaymentChannel, Invoice } from '@/lib/types/invoice';
-import { dbService } from '@/lib/services/dbService';
+import { supabase } from '@/lib/supabase/client';
 
 export default function PublicPaymentPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const { invoices, organization, updateInvoiceStatus } = useAppStore();
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [merchantName, setMerchantName] = useState(organization.name || 'MonneyFact Partner');
+  const [merchantLogo, setMerchantLogo] = useState(organization.logoUrl || '');
   const [loading, setLoading] = useState(true);
   const [selectedChannel, setSelectedChannel] = useState<PaymentChannel>('wave');
   const [clientPhone, setClientPhone] = useState('');
@@ -35,36 +36,111 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionRef, setTransactionRef] = useState('');
 
-  // 1. STRICT DATABASE STATUS CHECK: Always verify real-time status from DB/Store to prevent double payments
+  // 1. REAL-TIME PUBLIC SUPABASE & STORE QUERY: Load invoice for any guest client globally
   useEffect(() => {
-    const fetchRealtimeStatus = async () => {
+    let isMounted = true;
+
+    const fetchPublicInvoice = async () => {
       setLoading(true);
 
-      // Search in local store first
-      const storeInvoice = invoices.find(
-        (inv) => inv.id === token || inv.invoiceNumber === token || inv.paymentToken === token
-      );
+      try {
+        // A. Direct Supabase Database Query for public guest clients
+        const { data: dbInv, error } = await supabase
+          .from('invoices')
+          .select(`
+            *,
+            invoice_items (*)
+          `)
+          .or(`id.eq.${token},invoice_number.eq.${token},payment_token.eq.${token}`)
+          .maybeSingle();
 
-      if (storeInvoice) {
-        setInvoice(storeInvoice);
-        if (storeInvoice.status === 'paid') {
-          setPaymentSuccess(true);
+        if (dbInv && isMounted) {
+          const formattedItems = (dbInv.invoice_items || []).map((item: any) => ({
+            id: item.id,
+            description: item.description,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unit_price),
+            lineTotal: Number(item.line_total),
+          }));
+
+          // Fetch issuing organization details if available
+          if (dbInv.organization_id) {
+            const { data: orgData } = await supabase
+              .from('organizations')
+              .select('name, logo_url')
+              .eq('id', dbInv.organization_id)
+              .maybeSingle();
+
+            if (orgData) {
+              setMerchantName(orgData.name || organization.name);
+              setMerchantLogo(orgData.logo_url || '');
+            }
+          }
+
+          const parsedInvoice: Invoice = {
+            id: dbInv.id,
+            invoiceNumber: dbInv.invoice_number,
+            organizationId: dbInv.organization_id,
+            clientId: dbInv.client_id || '',
+            clientName: dbInv.client_name,
+            clientEmail: dbInv.client_email || '',
+            status: dbInv.status || 'sent',
+            issueDate: dbInv.issue_date,
+            dueDate: dbInv.due_date,
+            subtotal: Number(dbInv.subtotal),
+            taxRate: Number(dbInv.tax_rate || 18),
+            taxAmount: Number(dbInv.tax_amount),
+            total: Number(dbInv.total),
+            notes: dbInv.notes || '',
+            observations: dbInv.observations || '',
+            signatureUrl: dbInv.signature_url || '',
+            paymentToken: dbInv.payment_token || token,
+            paymentMethod: dbInv.payment_method,
+            paymentTransactionId: dbInv.payment_transaction_id,
+            paidAt: dbInv.paid_at,
+            items: formattedItems.length > 0 ? formattedItems : [
+              { id: '1', description: 'Prestation de service / Facture', quantity: 1, unitPrice: Number(dbInv.total), lineTotal: Number(dbInv.total) }
+            ],
+          };
+
+          setInvoice(parsedInvoice);
+          if (parsedInvoice.status === 'paid') {
+            setPaymentSuccess(true);
+          }
+          setLoading(false);
+          return;
         }
-      } else {
-        // Fallback store check
-        if (invoices.length > 0) {
+      } catch (err) {
+        console.warn('Supabase DB fetch fallback to store:', err);
+      }
+
+      // B. Fallback Local Store Search (If offline or testing locally)
+      if (isMounted) {
+        const storeInvoice = invoices.find(
+          (inv) => inv.id === token || inv.invoiceNumber === token || inv.paymentToken === token
+        );
+
+        if (storeInvoice) {
+          setInvoice(storeInvoice);
+          if (storeInvoice.status === 'paid') {
+            setPaymentSuccess(true);
+          }
+        } else if (invoices.length > 0) {
           setInvoice(invoices[0]);
           if (invoices[0].status === 'paid') {
             setPaymentSuccess(true);
           }
         }
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    fetchRealtimeStatus();
-  }, [token, invoices]);
+    fetchPublicInvoice();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, invoices, organization]);
 
   // 2. CINETPAY EXCLUSIVE PAYMENT SUBMISSION HANDLER
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -88,18 +164,27 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
         customerName: invoice.clientName,
         customerEmail: invoice.clientEmail || 'client@monneyfact.ci',
         customerPhone: clientPhone || '+2250700000000',
-        description: `Règlement Facture ${invoice.invoiceNumber} - ${organization.name}`,
+        description: `Règlement Facture ${invoice.invoiceNumber} - ${merchantName}`,
       });
 
       if (cRes.code === '201' && cRes.data?.payment_url) {
         window.open(cRes.data.payment_url, '_blank');
         updateInvoiceStatus(invoice.id, 'paid');
+        // Sync with Supabase asynchronously
+        await supabase
+          .from('invoices')
+          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .eq('id', invoice.id);
         setTransactionRef(`CPAY-${Date.now()}`);
         setPaymentSuccess(true);
       } else {
         // Simulation mode for testing (1-second delay)
         await new Promise((resolve) => setTimeout(resolve, 1000));
         updateInvoiceStatus(invoice.id, 'paid');
+        await supabase
+          .from('invoices')
+          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .eq('id', invoice.id);
         setTransactionRef(`CPAY-TX-${Date.now()}`);
         setPaymentSuccess(true);
       }
@@ -120,7 +205,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 text-white">
         <div className="flex items-center gap-3 bg-zinc-900 px-6 py-4 rounded-2xl border border-zinc-800 shadow-xl">
           <RefreshCw className="w-5 h-5 text-orange-500 animate-spin" />
-          <span className="text-xs font-bold text-zinc-300">Vérification sécurisée du statut de la facture sur CinetPay...</span>
+          <span className="text-xs font-bold text-zinc-300">Chargement sécurisé de la facture...</span>
         </div>
       </div>
     );
@@ -185,7 +270,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
           <div className="p-5 bg-zinc-950 rounded-2xl border border-zinc-800 text-left space-y-3 text-xs">
             <div className="flex justify-between border-b border-zinc-800 pb-2">
               <span className="text-zinc-400">Entreprise Émettrice :</span>
-              <span className="font-bold text-white">{organization.name}</span>
+              <span className="font-bold text-white">{merchantName}</span>
             </div>
             <div className="flex justify-between border-b border-zinc-800 pb-2">
               <span className="text-zinc-400">Numéro de Facture :</span>
@@ -256,14 +341,14 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
             <div className="flex items-center justify-between pb-6 border-b border-zinc-800">
               <div className="space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Facturé Par :</span>
-                <h2 className="text-xl font-extrabold text-white">{organization.name}</h2>
-                <p className="text-xs text-zinc-400">{organization.address || 'Abidjan, Côte d\'Ivoire'}</p>
+                <h2 className="text-xl font-extrabold text-white">{merchantName}</h2>
+                <p className="text-xs text-zinc-400">Abidjan, Côte d&apos;Ivoire</p>
               </div>
 
-              {organization.logoUrl ? (
+              {merchantLogo ? (
                 /* eslint-disable-next-html-element-suppression */
                 <div className="h-14 w-14 rounded-2xl bg-zinc-950 border border-zinc-800 p-1.5 flex items-center justify-center overflow-hidden shrink-0">
-                  <img src={organization.logoUrl} alt="Logo Entreprise" className="h-full w-full object-contain" />
+                  <img src={merchantLogo} alt="Logo Entreprise" className="h-full w-full object-contain" />
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-2xl bg-orange-600/20 text-orange-400 border border-orange-500/30 flex items-center justify-center font-extrabold text-sm">
