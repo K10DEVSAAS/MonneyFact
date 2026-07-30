@@ -15,14 +15,20 @@ export interface SubscriptionRecord {
 export interface AdminAuditLog {
   id: string;
   adminEmail: string;
-  action: 'suspend' | 'reactivate' | 'cancel' | 'upgrade';
+  action: 'suspend' | 'reactivate' | 'cancel' | 'upgrade' | 'renew';
   targetCompany: string;
   reason: string;
   timestamp: string;
 }
 
+export const PLAN_PRICES: Record<PlanType, number> = {
+  Découverte: 0,
+  Pro: 5000,
+  Business: 15000,
+};
+
 export const PLAN_LIMITS = {
-  Gratuit: {
+  Découverte: {
     maxInvoicesPerMonth: 5,
     maxClients: 5,
     customLogo: false,
@@ -84,7 +90,25 @@ export const subscriptionService = {
     return expires.toISOString();
   },
 
-  // Process automatic expirations and downgrade expired subscriptions to Gratuit
+  // Calculate days remaining before expiration
+  calculateDaysRemaining(expiresAt?: string): number {
+    if (!expiresAt) return 30;
+    const now = new Date();
+    const exp = new Date(expiresAt);
+    const diffTime = exp.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  },
+
+  // Check if subscription is expired
+  isSubscriptionExpired(expiresAt?: string, plan: PlanType = 'Pro'): boolean {
+    if (plan === 'Découverte') return false; // Plan Découverte ne s'expire jamais
+    if (!expiresAt) return false;
+    const now = new Date();
+    return new Date(expiresAt) < now;
+  },
+
+  // Process automatic expirations and downgrade expired subscriptions to Découverte
   processExpirations(companies: SubscriptionRecord[]): { updated: SubscriptionRecord[]; expiredCount: number } {
     const now = new Date();
     let expiredCount = 0;
@@ -92,11 +116,11 @@ export const subscriptionService = {
     const updated = companies.map((c) => {
       if (c.status === 'active' && c.expiresAt) {
         const expDate = new Date(c.expiresAt);
-        if (expDate < now && c.plan !== 'Gratuit') {
+        if (expDate < now && c.plan !== 'Découverte') {
           expiredCount++;
           return {
             ...c,
-            plan: 'Gratuit' as PlanType,
+            plan: 'Découverte' as PlanType,
             status: 'expired' as const,
             amount: 0,
           };

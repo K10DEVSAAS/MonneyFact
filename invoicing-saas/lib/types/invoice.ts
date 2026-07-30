@@ -2,7 +2,7 @@ export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
 
 export type PaymentChannel = 'wave' | 'orange_money' | 'mtn_momo' | 'moov' | 'card';
 
-export type PlanType = 'Gratuit' | 'Pro' | 'Business';
+export type PlanType = 'Découverte' | 'Pro' | 'Business';
 
 export interface InvoiceItem {
   id: string;
@@ -59,7 +59,10 @@ export interface Organization {
   phone: string;
   logoUrl?: string;
   taxId?: string; // Numéro Compte Contribuable (NNE/NCC)
-  plan?: PlanType; // Formule d'abonnement SaaS (Gratuit, Pro 5000 FCFA, Business 15000 FCFA)
+  plan?: PlanType; // Formule d'abonnement SaaS (Découverte 0 FCFA, Pro 5000 FCFA, Business 15000 FCFA)
+  status?: 'active' | 'expired' | 'suspended';
+  activatedAt?: string;
+  expiresAt?: string;
   createdAt: string;
 }
 

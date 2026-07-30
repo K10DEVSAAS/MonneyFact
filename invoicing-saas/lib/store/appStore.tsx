@@ -1,10 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Invoice, Client, Organization, DashboardStats, AppNotification } from '../types/invoice';
+import { Invoice, Client, Organization, DashboardStats, AppNotification, PlanType } from '../types/invoice';
 import { mockInvoices, mockClients, mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
 import { supabase } from '../supabase/client';
+import { PLAN_PRICES } from '../services/subscriptionService';
 
 const DEFAULT_ORG_UUID = 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
 
@@ -31,7 +32,7 @@ interface AppStoreType {
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   deleteClient: (id: string) => void;
   updateOrganization: (orgData: Partial<Organization>) => void;
-  initializeZeroAccount: (companyName: string, email: string, plan?: 'Gratuit' | 'Pro' | 'Business') => void;
+  initializeZeroAccount: (companyName: string, email: string, plan?: PlanType) => void;
   markCompanyNotifAsRead: (id: string) => void;
   markAllCompanyNotifsAsRead: () => void;
   deleteCompanyNotif: (id: string) => void;
@@ -161,7 +162,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const unreadCompanyNotifCount = companyNotifications.filter((n) => !n.read).length;
   const unreadAdminNotifCount = adminNotifications.filter((n) => !n.read).length;
 
-  // --- ACTIONS WITH GUARANTEED SERVER API INVOICE INSERT ---
   const addInvoice = async (newInv: Omit<Invoice, 'id' | 'createdAt'>) => {
     const generatedId = `inv-${Date.now()}`;
     const created: Invoice = {
@@ -179,10 +179,9 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(e);
     }
 
-    // Call Guaranteed Server API endpoint /api/invoices/create
     try {
       console.log('[DEBUG STORE] Sending invoice payload to /api/invoices/create:', generatedId);
-      const apiRes = await fetch('/api/invoices/create', {
+      await fetch('/api/invoices/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,9 +190,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           organizationName: organization.name,
         }),
       });
-
-      const resData = await apiRes.json();
-      console.log('[DEBUG STORE] /api/invoices/create Response:', resData);
     } catch (apiErr) {
       console.error('[DEBUG STORE ERROR] /api/invoices/create fetch error:', apiErr);
     }
@@ -302,10 +298,11 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const initializeZeroAccount = (
     companyName: string,
     email: string,
-    plan: 'Gratuit' | 'Pro' | 'Business' = 'Pro'
+    plan: PlanType = 'Pro'
   ) => {
-    const monthlySubscription = plan === 'Business' ? 15000 : plan === 'Pro' ? 5000 : 0;
+    const monthlySubscription = PLAN_PRICES[plan] || 5000;
     const newOrgId = getValidUuid();
+    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
 
     const newOrg: Organization = {
       id: newOrgId,
@@ -315,6 +312,10 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       phone: '+225 07 00 00 00 00',
       logoUrl: '',
       taxId: 'NCC Non Renseigné',
+      plan,
+      status: 'active',
+      activatedAt: new Date().toISOString(),
+      expiresAt,
       createdAt: new Date().toISOString(),
     };
     setOrganization(newOrg);
@@ -327,7 +328,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ownerName: companyName,
       ownerEmail: email,
       city: 'Abidjan',
-      plan,
+      plan: plan as any,
       status: 'active',
       registeredAt: new Date().toISOString().split('T')[0],
       totalInvoiced: 0,
@@ -373,6 +374,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       phone: '+225 07 00 00 00 00',
       address: 'Abidjan, Côte d\'Ivoire',
       tax_id: 'NCC Non Renseigné',
+      plan,
+      expires_at: expiresAt,
     }).then(({ error }) => {
       if (error) console.warn('Supabase org sync notice:', error);
     });

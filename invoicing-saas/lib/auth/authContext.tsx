@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../supabase/client';
+import { PlanType } from '../types/invoice';
 
 export type UserRole = 'guest' | 'client' | 'super_admin';
 
@@ -12,7 +13,7 @@ export interface UserSession {
   email: string;
   role: UserRole;
   companyName?: string;
-  plan?: 'Gratuit' | 'Pro' | 'Business';
+  plan?: PlanType;
   avatarUrl?: string;
 }
 
@@ -23,7 +24,7 @@ interface AuthContextType {
   isLoadingSession: boolean;
   loginAsClient: (email?: string) => void;
   loginAsAdmin: () => void;
-  registerClient: (companyName: string, email: string, plan: 'Gratuit' | 'Pro' | 'Business') => void;
+  registerClient: (companyName: string, email: string, plan: PlanType) => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
 }
@@ -161,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push('/admin');
   };
 
-  const registerClient = (companyName: string, email: string, plan: 'Gratuit' | 'Pro' | 'Business') => {
+  const registerClient = (companyName: string, email: string, plan: PlanType) => {
     const newUser: UserSession = {
       id: `usr-${Date.now()}`,
       name: companyName,

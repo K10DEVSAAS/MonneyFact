@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import { useAuth } from '@/lib/auth/authContext';
+import { useAppStore } from '@/lib/store/appStore';
+import { subscriptionService } from '@/lib/services/subscriptionService';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -15,15 +17,28 @@ export default function DashboardLayout({
   const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { isAuthenticated, isLoadingSession } = useAuth();
+  const { organization } = useAppStore();
 
-  // STRICT SECURITY PROTECTION: Block unauthenticated access to /dashboard
+  // 1. STRICT SECURITY PROTECTION: Block unauthenticated access to /dashboard
   useEffect(() => {
     if (!isLoadingSession && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, isLoadingSession, router]);
 
-  // 1. Show loading screen while validating session
+  // 2. EXPIRED SUBSCRIPTION PROTECTION: Redirect to /renewal if subscription is expired
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      organization &&
+      (organization.status === 'expired' ||
+        subscriptionService.isSubscriptionExpired(organization.expiresAt, organization.plan))
+    ) {
+      router.push('/renewal');
+    }
+  }, [isAuthenticated, organization, router]);
+
+  // Show loading screen while validating session
   if (isLoadingSession) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 text-white">
@@ -35,7 +50,7 @@ export default function DashboardLayout({
     );
   }
 
-  // 2. Block unauthenticated guests and redirect to /login
+  // Block unauthenticated guests and redirect to /login
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 text-white">

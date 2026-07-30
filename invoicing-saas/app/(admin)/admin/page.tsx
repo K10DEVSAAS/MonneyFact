@@ -11,22 +11,21 @@ import {
   CheckCircle2,
   BarChart3,
   RefreshCw,
-  Filter,
   Ban,
   Play,
-  XCircle,
-  FileText,
   Clock,
-  UserCheck,
+  History,
+  AlertCircle,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { dbService } from '@/lib/services/dbService';
+import { subscriptionService, PLAN_PRICES } from '@/lib/services/subscriptionService';
 import { formatFCFA } from '@/lib/utils/formatters';
 
 interface AuditEntry {
   id: string;
   adminEmail: string;
-  action: 'suspend' | 'reactivate' | 'cancel';
+  action: 'suspend' | 'reactivate' | 'cancel' | 'renew';
   companyName: string;
   reason: string;
   timestamp: string;
@@ -35,11 +34,12 @@ interface AuditEntry {
 export default function AdminCockpitPage() {
   const { registeredCompanies } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlanFilter, setSelectedPlanFilter] = useState<'all' | 'Gratuit' | 'Pro' | 'Business'>('all');
+  const [selectedPlanFilter, setSelectedPlanFilter] = useState<'all' | 'Découverte' | 'Pro' | 'Business'>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'suspended' | 'expired'>('all');
 
   const [liveCompanies, setLiveCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [simulatedPayments, setSimulatedPayments] = useState<any[]>([]);
 
   // Action Modal State for Suspend / Reactivate / Cancel
   const [actionModal, setActionModal] = useState<{
@@ -51,7 +51,7 @@ export default function AdminCockpitPage() {
   const [auditReason, setAuditReason] = useState('');
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
 
-  // FETCH LIVE REAL-TIME ORGANIZATIONS & AUDIT LOGS
+  // FETCH LIVE REAL-TIME ORGANIZATIONS, SIMULATED PAYMENTS & AUDIT LOGS
   useEffect(() => {
     let isMounted = true;
 
@@ -68,17 +68,23 @@ export default function AdminCockpitPage() {
 
         // 1. Add Local Store companies
         localList.forEach((c) => {
+          const planName = c.plan === 'Gratuit' ? 'Découverte' : (c.plan || 'Pro');
+          const price = PLAN_PRICES[planName as keyof typeof PLAN_PRICES] || 5000;
+          const daysLeft = subscriptionService.calculateDaysRemaining(c.expiresAt);
+
           mergedMap.set(c.ownerEmail || c.name, {
             id: c.id,
             name: c.name,
             ownerName: c.ownerName || c.name,
             ownerEmail: c.ownerEmail,
             city: c.city || 'Abidjan',
-            plan: c.plan || 'Pro',
+            plan: planName,
             status: c.status || 'active',
             registeredAt: c.registeredAt || new Date().toISOString().split('T')[0],
+            expiresAt: c.expiresAt || new Date(Date.now() + 30 * 86400000).toISOString(),
+            daysRemaining: daysLeft,
             totalInvoiced: c.totalInvoiced || 0,
-            monthlySubscription: c.monthlySubscription !== undefined ? c.monthlySubscription : (c.plan === 'Business' ? 15000 : c.plan === 'Gratuit' ? 0 : 5000),
+            monthlySubscription: price,
           });
         });
 
@@ -96,6 +102,8 @@ export default function AdminCockpitPage() {
                 plan: 'Pro',
                 status: 'active',
                 registeredAt: new Date(c.created_at || Date.now()).toISOString().split('T')[0],
+                expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+                daysRemaining: 30,
                 totalInvoiced: 0,
                 monthlySubscription: 5000,
               });
@@ -106,10 +114,12 @@ export default function AdminCockpitPage() {
         const mergedArray = Array.from(mergedMap.values());
 
         const savedAuditLogs = localStorage.getItem('monneyfact_audit_logs');
+        const savedPaymentsStr = localStorage.getItem('monneyfact_simulated_payments');
 
         if (isMounted) {
           setLiveCompanies(mergedArray);
           if (savedAuditLogs) setAuditLogs(JSON.parse(savedAuditLogs));
+          if (savedPaymentsStr) setSimulatedPayments(JSON.parse(savedPaymentsStr));
         }
       } catch (e) {
         console.error(e);
@@ -128,7 +138,7 @@ export default function AdminCockpitPage() {
 
   const displayList = liveCompanies.length > 0 ? liveCompanies : registeredCompanies;
 
-  // Filter Logic by Search, Plan, and Status
+  // Multi-criteria filter
   const filteredCompanies = displayList.filter((comp) => {
     const matchesSearch =
       comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -145,12 +155,11 @@ export default function AdminCockpitPage() {
   const totalInvoicedPlatform = displayList.reduce((sum, c) => sum + (c.totalInvoiced || 0), 0);
   const totalMRR = displayList.reduce((sum, c) => sum + (c.monthlySubscription !== undefined ? c.monthlySubscription : 5000), 0);
   const activeCount = displayList.filter((c) => c.status === 'active').length;
-  const expiredCount = displayList.filter((c) => c.status === 'expired').length;
+  const expiringSoonCount = displayList.filter((c) => c.daysRemaining > 0 && c.daysRemaining <= 5).length;
 
-  // Handle Admin Actions (Suspend, Reactivate, Cancel) with Mandatory Reason Logging
   const handleConfirmAction = () => {
     if (!actionModal.company || !auditReason.trim()) {
-      alert('Veuillez spécifier le motif ou la raison de cette action administrateur.');
+      alert('Veuillez spécifier le motif de cette action administrateur.');
       return;
     }
 
@@ -204,7 +213,7 @@ export default function AdminCockpitPage() {
               Cockpit Global de Supervision SaaS
             </h2>
             <p className="text-zinc-300 text-sm max-w-xl">
-              Supervision en temps réel des inscriptions d&apos;entreprises en Côte d&apos;Ivoire et du MRR.
+              Supervision des abonnements (Découverte, Pro, Business), décompte des jours restants et paiements simulés.
             </p>
           </div>
 
@@ -240,31 +249,29 @@ export default function AdminCockpitPage() {
             </div>
           </div>
           <h3 className="text-2xl font-extrabold font-mono text-emerald-400">{formatFCFA(totalMRR)}</h3>
-          <p className="text-xs text-zinc-400 font-semibold">Cumul des abonnements mensuels</p>
+          <p className="text-xs text-zinc-400 font-semibold">Projeté annuel : {formatFCFA(totalMRR * 12)}</p>
         </div>
 
         <div className="p-5 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Volume Facturé Global</span>
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Expirations Proches</span>
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
+              <AlertCircle className="w-5 h-5" />
             </div>
           </div>
-          <h3 className="text-2xl font-extrabold font-mono text-amber-400">{formatFCFA(totalInvoicedPlatform)}</h3>
-          <p className="text-xs text-zinc-400 font-semibold">Généré par les entreprises</p>
+          <h3 className="text-2xl font-extrabold font-mono text-amber-400">{expiringSoonCount}</h3>
+          <p className="text-xs text-zinc-400 font-semibold">Expirant dans moins de 5j</p>
         </div>
 
         <div className="p-5 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Taux de Conversion</span>
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Paiements Simulés</span>
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
+              <History className="w-5 h-5" />
             </div>
           </div>
-          <h3 className="text-2xl font-extrabold font-mono text-orange-400">
-            {displayList.length > 0 ? '100%' : '0%'}
-          </h3>
-          <p className="text-xs text-zinc-400 font-semibold">Abonnés Pro & Business</p>
+          <h3 className="text-2xl font-extrabold font-mono text-orange-400">{simulatedPayments.length}</h3>
+          <p className="text-xs text-zinc-400 font-semibold">Transactions enregistrées</p>
         </div>
       </div>
 
@@ -272,9 +279,9 @@ export default function AdminCockpitPage() {
       <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
           <div>
-            <h3 className="text-base font-bold text-white">Gestion & Supervision des Entreprises</h3>
+            <h3 className="text-base font-bold text-white">Gestion des Abonnements & Jours Restants</h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Filtrer par formule d&apos;abonnement, statut et effectuer des actions de contrôle administrateur
+              Supervision des échéances et statut des comptes (Découverte, Pro, Business)
             </p>
           </div>
 
@@ -298,7 +305,7 @@ export default function AdminCockpitPage() {
               className="px-3 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-orange-500 font-bold"
             >
               <option value="all">Tous les Plans</option>
-              <option value="Gratuit">Plan Gratuit</option>
+              <option value="Découverte">Plan Découverte (0 FCFA)</option>
               <option value="Pro">Plan Pro (5 000 FCFA)</option>
               <option value="Business">Plan Business (15 000 FCFA)</option>
             </select>
@@ -320,7 +327,7 @@ export default function AdminCockpitPage() {
         {filteredCompanies.length === 0 ? (
           <div className="py-12 text-center space-y-2">
             <Building2 className="w-10 h-10 text-zinc-600 mx-auto" />
-            <p className="text-sm font-bold text-zinc-300">Aucune entreprise trouvée avec ces filtres</p>
+            <p className="text-sm font-bold text-zinc-300">Aucune entreprise trouvée</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -330,7 +337,7 @@ export default function AdminCockpitPage() {
                   <th className="py-3.5 px-4 rounded-l-xl">Entreprise</th>
                   <th className="py-3.5 px-4">Gérant & Contact</th>
                   <th className="py-3.5 px-4 text-center">Plan Abonnement</th>
-                  <th className="py-3.5 px-4 text-right">Volume Facturé</th>
+                  <th className="py-3.5 px-4 text-center">Jours Restants</th>
                   <th className="py-3.5 px-4 text-center">Statut Compte</th>
                   <th className="py-3.5 px-4 text-right rounded-r-xl">Actions Admin</th>
                 </tr>
@@ -349,12 +356,18 @@ export default function AdminCockpitPage() {
 
                     <td className="py-4 px-4 text-center">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
-                        {comp.plan || 'Pro'} ({formatFCFA(comp.monthlySubscription !== undefined ? comp.monthlySubscription : 5000)}/m)
+                        {comp.plan} ({formatFCFA(comp.monthlySubscription)}/m)
                       </span>
                     </td>
 
-                    <td className="py-4 px-4 text-right font-mono font-bold text-white">
-                      {formatFCFA(comp.totalInvoiced || 0)}
+                    <td className="py-4 px-4 text-center font-mono font-bold">
+                      {comp.plan === 'Découverte' ? (
+                        <span className="text-zinc-500">Illimité</span>
+                      ) : (
+                        <span className={comp.daysRemaining <= 5 ? 'text-amber-400' : 'text-emerald-400'}>
+                          {comp.daysRemaining} jours
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-4 px-4 text-center">
@@ -397,6 +410,34 @@ export default function AdminCockpitPage() {
           </div>
         )}
       </div>
+
+      {/* Simulated Payments Log Table */}
+      {simulatedPayments.length > 0 && (
+        <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-4">
+          <div className="flex items-center gap-2">
+            <History className="w-5 h-5 text-orange-500" />
+            <h3 className="text-base font-bold text-white">Historique des Paiements Simulés (Pré-équipé Siposive Genius Pay)</h3>
+          </div>
+
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            {simulatedPayments.map((tx, idx) => (
+              <div key={idx} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex justify-between items-center text-xs">
+                <div>
+                  <span className="font-bold text-white">{tx.customerEmail}</span>
+                  <span className="text-zinc-400"> — Formule </span>
+                  <span className="font-bold text-orange-400">{tx.planName}</span>
+                  <span className="text-zinc-400"> via </span>
+                  <span className="font-bold text-emerald-400 uppercase">{tx.channel}</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-bold text-white">{tx.amount.toLocaleString()} FCFA</span>
+                  <p className="text-[10px] text-zinc-500">{new Date(tx.timestamp).toLocaleString('fr-FR')}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Admin Audit Logs Table */}
       {auditLogs.length > 0 && (

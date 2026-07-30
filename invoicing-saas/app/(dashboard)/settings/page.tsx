@@ -1,18 +1,27 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Save, Building, Phone, MapPin, FileCheck, Upload, Image as ImageIcon, CheckCircle2, Trash2, Smartphone, CreditCard, ShieldCheck, Crown, Check } from 'lucide-react';
+import { Save, Building, Phone, MapPin, FileCheck, Upload, Image as ImageIcon, CheckCircle2, Trash2, Smartphone, CreditCard, ShieldCheck, Crown, Check, RefreshCw } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { CINETPAY_DEFAULT_CONFIG } from '@/lib/services/cinetpayService';
-import { formatFCFA } from '@/lib/utils/formatters';
+import { paymentProvider, PaymentChannel } from '@/lib/services/paymentService';
+import { subscriptionService } from '@/lib/services/subscriptionService';
+import { PlanType } from '@/lib/types/invoice';
 
 export default function SettingsPage() {
   const { organization, updateOrganization } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [currentPlan, setCurrentPlan] = useState<'Gratuit' | 'Pro' | 'Business'>(
-    organization.plan || 'Pro'
-  );
+  const [currentPlan, setCurrentPlan] = useState<PlanType>(organization.plan || 'Pro');
+  const [targetPlan, setTargetPlan] = useState<PlanType>('Pro');
+
+  // Simulated Payment Modal
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<PaymentChannel>('wave');
+  const [phone, setPhone] = useState(organization.phone || '+225 07 00 00 00 00');
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  const targetPrice = targetPlan === 'Business' ? 15000 : targetPlan === 'Pro' ? 5000 : 0;
 
   const [org, setOrg] = useState({
     name: organization.name,
@@ -28,7 +37,6 @@ export default function SettingsPage() {
 
   const [saved, setSaved] = useState(false);
 
-  // REAL LOGO FILE UPLOAD HANDLER
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -52,10 +60,51 @@ export default function SettingsPage() {
     updateOrganization({ logoUrl: '' });
   };
 
-  const handlePlanSwitch = (newPlan: 'Gratuit' | 'Pro' | 'Business') => {
-    setCurrentPlan(newPlan);
-    updateOrganization({ plan: newPlan });
-    alert(`Votre abonnement a été mis à jour vers la formule "${newPlan}" !`);
+  const handleInitiatePlanChange = (newPlan: PlanType) => {
+    if (newPlan === currentPlan) return;
+
+    if (newPlan === 'Découverte') {
+      setCurrentPlan('Découverte');
+      updateOrganization({ plan: 'Découverte', status: 'active', expiresAt: undefined });
+      alert('Votre formule a été modifiée vers le Plan Découverte.');
+    } else {
+      setTargetPlan(newPlan);
+      setPaymentModalOpen(true);
+    }
+  };
+
+  const handleSimulatePayment = async () => {
+    setProcessingPayment(true);
+    try {
+      const result = await paymentProvider.initiatePayment({
+        amount: targetPrice,
+        currency: 'FCFA',
+        customerEmail: organization.email || 'contact@entreprise.ci',
+        customerPhone: phone,
+        planName: targetPlan,
+        channel: selectedChannel,
+      });
+
+      if (result.success) {
+        const newExpiresAt = subscriptionService.calculateExpirationDate('monthly');
+        setCurrentPlan(targetPlan);
+        updateOrganization({
+          plan: targetPlan,
+          status: 'active',
+          expiresAt: newExpiresAt,
+        });
+
+        alert(`Paiement simulé réussi ! Votre abonnement a été sur-classé vers la formule ${targetPlan}.`);
+        setPaymentModalOpen(false);
+      } else {
+        alert('Erreur lors de la simulation du règlement. Veuillez réessayer.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erreur réseau lors de la simulation de paiement.');
+    } finally {
+      setProcessingPayment(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -73,7 +122,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in">
+    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in text-slate-900">
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Paramètres & Formule d&apos;Abonnement</h2>
         <p className="text-xs text-slate-500 mt-1">
@@ -99,33 +148,33 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          {/* Plan Gratuit */}
+          {/* Plan Découverte */}
           <div
-            onClick={() => handlePlanSwitch('Gratuit')}
+            onClick={() => handleInitiatePlanChange('Découverte')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
-              currentPlan === 'Gratuit'
+              currentPlan === 'Découverte'
                 ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
                 : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
             }`}
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-extrabold text-white text-sm">Plan Gratuit</p>
+                <p className="font-extrabold text-white text-sm">Découverte</p>
                 <p className="text-orange-400 font-mono font-bold">0 FCFA / mois</p>
               </div>
-              {currentPlan === 'Gratuit' && <Check className="w-5 h-5 text-emerald-400" />}
+              {currentPlan === 'Découverte' && <Check className="w-5 h-5 text-emerald-400" />}
             </div>
             <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
               <li>• Max 5 factures par mois</li>
               <li>• Max 5 clients dans le répertoire</li>
               <li>• Calcul automatique TVA 18%</li>
-              <li>• Export PDF standard</li>
+              <li>• Export PDF simple</li>
             </ul>
           </div>
 
           {/* Plan Pro */}
           <div
-            onClick={() => handlePlanSwitch('Pro')}
+            onClick={() => handleInitiatePlanChange('Pro')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
               currentPlan === 'Pro'
                 ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
@@ -150,7 +199,7 @@ export default function SettingsPage() {
 
           {/* Plan Business */}
           <div
-            onClick={() => handlePlanSwitch('Business')}
+            onClick={() => handleInitiatePlanChange('Business')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
               currentPlan === 'Business'
                 ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
@@ -175,16 +224,103 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* SIMULATED PAYMENT MODAL FOR PLAN CHANGE */}
+      {paymentModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in text-white">
+          <div className="max-w-md w-full bg-zinc-900 rounded-3xl border border-zinc-800 p-6 space-y-5 text-zinc-100 shadow-2xl">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-white">Sur-classement d&apos;Abonnement</h3>
+              <p className="text-xs text-zinc-400">
+                Passez au <strong className="text-white font-bold">{targetPlan}</strong> — Montant : <strong className="text-orange-400 font-mono font-bold text-sm">{targetPrice.toLocaleString()} FCFA/m</strong>
+              </p>
+            </div>
+
+            <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl text-[11px] text-zinc-300 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-orange-400 shrink-0" />
+              <span>Simulation de transaction prête pour l&apos;intégration Siposive Genius Pay.</span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <label className="font-bold text-zinc-300">Mode de règlement :</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'wave', label: 'Wave 🌊' },
+                  { id: 'orange_money', label: 'Orange Money 🟧' },
+                  { id: 'mtn_momo', label: 'MTN MoMo 🟨' },
+                  { id: 'card', label: 'Carte Bancaire 💳' },
+                ].map((ch) => (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => setSelectedChannel(ch.id as PaymentChannel)}
+                    className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                      selectedChannel === ch.id
+                        ? 'bg-orange-600 text-white border-orange-500'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                    }`}
+                  >
+                    {ch.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1 text-xs">
+              <label className="font-bold text-zinc-300">Numéro Mobile Money pour la simulation</label>
+              <div className="relative">
+                <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+              <button
+                type="button"
+                disabled={processingPayment}
+                onClick={() => setPaymentModalOpen(false)}
+                className="px-4 py-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 text-xs font-bold rounded-xl"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                disabled={processingPayment}
+                onClick={handleSimulatePayment}
+                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 flex items-center gap-2"
+              >
+                {processingPayment ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Simuler le Règlement ({targetPrice.toLocaleString()} FCFA)</span>
+                    <Check className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GENERAL COMPANY INFORMATION FORM */}
       <div className="p-6 lg:p-8 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-8">
         {saved && (
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>Paramètres et clés d&apos;encaissement enregistrés avec succès !</span>
+            <span>Paramètres enregistrés avec succès !</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Logo Upload Section */}
           <div className="space-y-3 pb-6 border-b border-slate-100">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
               Logo Officiel de l&apos;Entreprise
@@ -241,7 +377,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* General Company Information */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -317,58 +452,6 @@ export default function SettingsPage() {
                 placeholder="ex: Boulevard Latrille, Cocody, Abidjan"
                 className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900"
               />
-            </div>
-          </div>
-
-          {/* CINETPAY & MOBILE MONEY PAYOUT CONFIGURATION SECTION */}
-          <div className="pt-6 border-t border-slate-100 space-y-4">
-            <div className="flex items-center gap-2 text-slate-900">
-              <CreditCard className="w-5 h-5 text-orange-600" />
-              <h3 className="text-sm font-extrabold uppercase tracking-wider">
-                Configuration Agrégateur de Paiement (CinetPay & Mobile Money)
-              </h3>
-            </div>
-
-            <div className="p-4 bg-orange-50/60 border border-orange-200 rounded-2xl space-y-2 text-xs text-slate-700">
-              <div className="flex items-center gap-2 font-bold text-orange-900">
-                <ShieldCheck className="w-4 h-4 text-orange-600" />
-                <span>Mode Sandbox Active & Encaissement Direct Mobile Money 🇨🇮</span>
-              </div>
-              <p className="text-[11px] text-slate-600">
-                Les règlements effectués par vos clients sur leurs factures (Wave, Orange Money, MTN MoMo, Moov ou Carte) seront crédités directement sur votre numéro Mobile Money ci-dessous.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Numéro Mobile Money de Réception (Wave / OM / MTN) *
-                </label>
-                <div className="relative">
-                  <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    value={org.mobileMoneyPhone}
-                    onChange={(e) => setOrg({ ...org, mobileMoneyPhone: e.target.value })}
-                    placeholder="+225 07 08 09 10 11"
-                    className="w-full pl-10 pr-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  CinetPay Site ID
-                </label>
-                <input
-                  type="text"
-                  value={org.cinetpaySiteId}
-                  onChange={(e) => setOrg({ ...org, cinetpaySiteId: e.target.value })}
-                  placeholder="ex: 587421"
-                  className="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-mono"
-                />
-              </div>
             </div>
           </div>
 
