@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, Search, Bell, Plus, Calendar, LogOut, Building2, ChevronDown, Check } from 'lucide-react';
+import { Menu, Search, Bell, Plus, Calendar, LogOut, Building2, ChevronDown, Check, Building } from 'lucide-react';
 import { formatDate } from '@/lib/utils/formatters';
 import { NotificationsDrawer } from './NotificationsDrawer';
 import { useAuth } from '@/lib/auth/authContext';
@@ -37,7 +37,6 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   const today = formatDate(new Date().toISOString());
   const unreadCount = isAdmin ? unreadAdminNotifCount : unreadCompanyNotifCount;
-  const isBusiness = organization.plan === 'Business';
 
   const activeSubName = activeSubsidiaryId === 'global'
     ? '📊 Vue Consolidée (Toutes les Agences)'
@@ -67,61 +66,71 @@ export const Topbar: React.FC<TopbarProps> = ({
                 )}
               </div>
 
-              {/* CONTEXT SWITCHER DROPDOWN */}
+              {/* CLEAN CONTEXT BADGE OR SWITCHER */}
               {!isAdmin && (
                 <div className="relative mt-0.5">
-                  <button
-                    onClick={() => setIsSubDropdownOpen(!isSubDropdownOpen)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100/80 border border-orange-200 px-2.5 py-1 rounded-xl transition-all"
-                  >
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span className="truncate max-w-[200px]">{activeSubName}</span>
-                    <ChevronDown className="w-3 h-3 text-orange-500 shrink-0" />
-                  </button>
-
-                  {isSubDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 animate-fade-in space-y-1 text-xs font-semibold">
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-slate-400">
-                        Changer le Contexte d&apos;Entreprise
-                      </div>
-
+                  {subsidiaries.length > 0 ? (
+                    <>
                       <button
-                        onClick={() => {
-                          setActiveSubsidiaryId('global');
-                          setIsSubDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
-                          activeSubsidiaryId === 'global'
-                            ? 'bg-orange-600 text-white font-extrabold'
-                            : 'hover:bg-slate-100 text-slate-700'
-                        }`}
+                        onClick={() => setIsSubDropdownOpen(!isSubDropdownOpen)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100/80 border border-orange-200 px-2.5 py-1 rounded-xl transition-all"
                       >
-                        <span>📊 Vue Consolidée (Toutes)</span>
-                        {activeSubsidiaryId === 'global' && <Check className="w-4 h-4" />}
+                        <Building2 className="w-3.5 h-3.5" />
+                        <span className="truncate max-w-[200px]">{activeSubName}</span>
+                        <ChevronDown className="w-3 h-3 text-orange-500 shrink-0" />
                       </button>
 
-                      {subsidiaries.map((sub) => (
-                        <button
-                          key={sub.id}
-                          onClick={() => {
-                            setActiveSubsidiaryId(sub.id);
-                            setIsSubDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${
-                            activeSubsidiaryId === sub.id
-                              ? 'bg-orange-600 text-white font-extrabold'
-                              : 'hover:bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          <div className="truncate">
-                            <p className="truncate font-bold">{sub.name}</p>
-                            <p className={`text-[10px] ${activeSubsidiaryId === sub.id ? 'text-orange-100' : 'text-slate-400'}`}>
-                              {sub.type} ({sub.city})
-                            </p>
+                      {isSubDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 animate-fade-in space-y-1 text-xs font-semibold">
+                          <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-slate-400">
+                            Changer le Contexte d&apos;Entreprise
                           </div>
-                          {activeSubsidiaryId === sub.id && <Check className="w-4 h-4 shrink-0" />}
-                        </button>
-                      ))}
+
+                          <button
+                            onClick={() => {
+                              setActiveSubsidiaryId('global');
+                              setIsSubDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                              activeSubsidiaryId === 'global'
+                                ? 'bg-orange-600 text-white font-extrabold'
+                                : 'hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <span>📊 Vue Consolidée (Toutes)</span>
+                            {activeSubsidiaryId === 'global' && <Check className="w-4 h-4" />}
+                          </button>
+
+                          {subsidiaries.map((sub) => (
+                            <button
+                              key={sub.id}
+                              onClick={() => {
+                                setActiveSubsidiaryId(sub.id);
+                                setIsSubDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${
+                                activeSubsidiaryId === sub.id
+                                  ? 'bg-orange-600 text-white font-extrabold'
+                                  : 'hover:bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              <div className="truncate">
+                                <p className="truncate font-bold">{sub.name}</p>
+                                <p className={`text-[10px] ${activeSubsidiaryId === sub.id ? 'text-orange-100' : 'text-slate-400'}`}>
+                                  {sub.type} ({sub.city})
+                                </p>
+                              </div>
+                              {activeSubsidiaryId === sub.id && <Check className="w-4 h-4 shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* CLEAN BADGE FOR SINGLE COMPANY STATE */
+                    <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-lg">
+                      <Building className="w-3 h-3 text-orange-600" />
+                      <span className="truncate">{organization.name}</span>
                     </div>
                   )}
                 </div>
