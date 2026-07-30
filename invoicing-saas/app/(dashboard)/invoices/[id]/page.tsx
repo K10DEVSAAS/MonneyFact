@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation';
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { invoices, updateInvoiceStatus, organization } = useAppStore();
+  const { invoices, clients, updateInvoiceStatus, organization } = useAppStore();
   const [paying, setPaying] = useState(false);
 
   const invoice = invoices.find((inv) => inv.id === id);
@@ -57,14 +57,34 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     document.title = originalTitle;
   };
 
-  // WHATSAPP SHARE GENERATOR WITH PUBLIC SYNEPAY LINK
+  // WHATSAPP SHARE GENERATOR WITH REGISTERED CLIENT PHONE NUMBER IN INTERNATIONAL FORMAT (POINT 10)
   const handleWhatsAppShare = () => {
+    // 1. Retrieve registered client phone number
+    let rawPhone = '';
+    const registeredClient = clients.find(
+      (c) => c.id === invoice.clientId || c.name.toLowerCase() === invoice.clientName.toLowerCase()
+    );
+
+    if (registeredClient && registeredClient.phone) {
+      rawPhone = registeredClient.phone;
+    }
+
+    // 2. Clean digits & format to international CI (+225)
+    let digits = rawPhone.replace(/[^0-9]/g, '');
+    if (digits.length === 10) {
+      digits = `225${digits}`;
+    }
+
     const text = `Bonjour ${invoice.clientName},\n\nVoici votre facture officielle *${invoice.invoiceNumber}* émise par *${organization.name}* :\n\n- Montant Total TTC : *${formatFCFA(invoice.total)}*\n- Date d'Échéance : ${formatDate(invoice.dueDate)}\n\nVous pouvez la consulter et la régler en ligne par Wave / Mobile Money ici :\n${paymentUrl}\n\nCordialement.`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+
+    const whatsappUrl = digits
+      ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+
     window.open(whatsappUrl, '_blank');
   };
 
-  // EMAIL SHARE GENERATOR WITH PUBLIC SYNEPAY LINK
+  // EMAIL SHARE GENERATOR WITH PUBLIC PAYMENT LINK
   const handleEmailShare = () => {
     const subject = `Facture ${invoice.invoiceNumber} - ${organization.name}`;
     const body = `Bonjour ${invoice.clientName},\n\nVeuillez trouver ci-joint les détails de votre facture ${invoice.invoiceNumber} d'un montant de ${formatFCFA(invoice.total)}.\n\nLien de règlement en ligne Wave / Mobile Money :\n${paymentUrl}\n\nMerci de votre confiance.\n\n${organization.name}`;
@@ -98,197 +118,138 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           {/* WhatsApp Share Button */}
           <button
             onClick={handleWhatsAppShare}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl shadow-xs transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/20 transition-all"
           >
             <MessageCircle className="w-4 h-4" />
-            <span>WhatsApp</span>
+            <span>Envoyer sur WhatsApp</span>
           </button>
 
           {/* Email Share Button */}
           <button
             onClick={handleEmailShare}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-xl shadow-xs transition-all"
           >
             <Mail className="w-4 h-4" />
-            <span>Email</span>
+            <span>Envoyer par Email</span>
           </button>
-
-          {/* Mark Paid Toggle */}
-          {invoice.status !== 'paid' && (
-            <button
-              onClick={() => updateInvoiceStatus(invoice.id, 'paid')}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all"
-            >
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Marquer Payée</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* PROMINENT SYNEPAY PUBLIC PAYMENT LINK BANNER */}
-      {invoice.status !== 'paid' && (
-        <div className="p-6 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-white/20 text-white text-xs font-extrabold backdrop-blur-xs">
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Lien Public de Paiement Sécurisé (SynePay Ready)</span>
-            </div>
-            <h3 className="text-lg font-black tracking-tight text-white">
-              Guichet de Règlement Client : Wave, Orange, MTN, Moov & Carte
-            </h3>
-            <p className="text-xs text-orange-100 max-w-lg font-medium">
-              Ce lien sécurisé est généré automatiquement et transmis à votre client sur WhatsApp sans aucune connexion requise.
-            </p>
-          </div>
-
-          <button
-            onClick={handleOpenPaymentPage}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-zinc-950 hover:bg-zinc-900 active:scale-95 text-white text-xs font-extrabold rounded-2xl shadow-2xl transition-all shrink-0 border border-orange-400/30"
-          >
-            <CreditCard className="w-4 h-4 text-orange-400" />
-            <span>Ouvrir la Page de Paiement ({formatFCFA(invoice.total)})</span>
-            <ExternalLink className="w-3.5 h-3.5 text-orange-400" />
-          </button>
-        </div>
-      )}
-
-      {/* Official Clean Commercial Invoice Document */}
-      <div id="printable-invoice" className="p-8 lg:p-12 bg-white rounded-3xl border border-slate-200 shadow-xl space-y-10 print:border-none print:shadow-none print:p-0">
-        {/* Header Branding */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-8 border-b border-slate-200">
-          <div className="space-y-3">
+      {/* Official Invoice Sheet */}
+      <div className="p-8 lg:p-12 bg-white rounded-3xl border border-slate-200 shadow-xl space-y-8 relative overflow-hidden print:border-none print:shadow-none print:p-0">
+        {/* Invoice Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-200">
+          <div className="space-y-2">
             {organization.logoUrl ? (
               /* eslint-disable-next-html-element-suppression */
-              <div className="h-16 w-auto max-w-[200px]">
-                <img src={organization.logoUrl} alt="Logo Entreprise" className="h-full w-auto object-contain" />
-              </div>
+              <img
+                src={organization.logoUrl}
+                alt={organization.name}
+                className="h-14 object-contain max-w-[200px]"
+              />
             ) : (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-600 text-white font-bold flex items-center justify-center">
-                  <Receipt className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold">
+                  <Receipt className="w-6 h-6" />
                 </div>
-                <span className="font-extrabold text-xl text-slate-900">{organization.name}</span>
+                <h1 className="text-xl font-extrabold text-slate-900">{organization.name}</h1>
               </div>
             )}
-            <div className="text-xs text-slate-600 space-y-0.5 font-medium">
-              <p className="font-bold text-slate-900">{organization.name}</p>
-              <p>{organization.address || 'Abidjan, Côte d\'Ivoire'}</p>
-              <p>{organization.phone || '+225 07 00 00 00 00'}</p>
-              {organization.taxId && <p className="font-mono text-orange-600 font-bold">{organization.taxId}</p>}
-            </div>
+            <p className="text-xs text-slate-500">{organization.address || 'Abidjan, Côte d\'Ivoire'}</p>
+            {organization.taxId && (
+              <p className="text-[11px] font-mono text-slate-400">Compte Contribuable : {organization.taxId}</p>
+            )}
           </div>
 
-          <div className="text-left sm:text-right space-y-2">
-            <span className="inline-block text-xs font-black uppercase tracking-wider text-orange-600 px-3 py-1 bg-orange-50 border border-orange-200 rounded-full">
+          <div className="text-left sm:text-right space-y-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-600 px-3 py-1 bg-orange-50 rounded-full border border-orange-200">
               FACTURE OFFICIELLE
             </span>
-            <h2 className="text-2xl font-black font-mono text-slate-900 tracking-tight">{invoice.invoiceNumber}</h2>
-            <div className="text-xs text-slate-500 font-medium space-y-0.5">
-              <p>Émise le : <span className="font-bold text-slate-900">{formatDate(invoice.issueDate)}</span></p>
-              <p>Échéance : <span className="font-bold text-orange-600">{formatDate(invoice.dueDate)}</span></p>
-            </div>
+            <h2 className="text-2xl font-black text-slate-900 font-mono mt-2">{invoice.invoiceNumber}</h2>
+            <p className="text-xs text-slate-500 font-medium">Émise le : {formatDate(invoice.issueDate)}</p>
+            <p className="text-xs text-slate-500 font-medium">Échéance : {formatDate(invoice.dueDate)}</p>
           </div>
         </div>
 
-        {/* Client Info */}
-        <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row justify-between gap-6">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Facturé à :</span>
-            <h3 className="text-sm font-extrabold text-slate-900">{invoice.clientName}</h3>
-            <p className="text-xs text-slate-600 font-medium">{invoice.clientEmail}</p>
+        {/* Client & Issuer Details Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200/80">
+          <div className="space-y-1 text-xs">
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Émetteur</span>
+            <p className="font-extrabold text-slate-900 text-sm">{organization.name}</p>
+            <p className="text-slate-600">{organization.address || 'Abidjan, Côte d\'Ivoire'}</p>
+            <p className="text-slate-600">{organization.phone || '+225 07 00 00 00 00'}</p>
           </div>
-          <div className="text-left sm:text-right space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Statut du Règlement :</span>
-            <div>
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                  invoice.status === 'paid'
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    : invoice.status === 'overdue'
-                    ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                    : 'bg-amber-100 text-amber-800 border border-amber-200'
-                }`}
-              >
-                {invoice.status === 'paid' ? 'PAYÉE (ENCAISSÉE)' : invoice.status === 'overdue' ? 'EN RETARD' : 'EN ATTENTE DE PAIEMENT'}
-              </span>
-            </div>
+
+          <div className="space-y-1 text-xs">
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Facturé à (Client)</span>
+            <p className="font-extrabold text-slate-900 text-sm">{invoice.clientName}</p>
+            {invoice.clientEmail && <p className="text-slate-600">{invoice.clientEmail}</p>}
           </div>
         </div>
 
-        {/* Items Table */}
+        {/* Invoice Items Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-100 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                <th className="py-3 px-4 rounded-l-xl">Description du Service / Produit</th>
+              <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <th className="py-3 px-4 rounded-l-xl">Description de la prestation / produit</th>
                 <th className="py-3 px-4 text-center">Qté</th>
                 <th className="py-3 px-4 text-right">Prix Unitaire HT</th>
-                <th className="py-3 px-4 text-right rounded-r-xl">Total HT FCFA</th>
+                <th className="py-3 px-4 text-right rounded-r-xl">Total HT</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-medium">
-              {invoice.items.map((item) => (
-                <tr key={item.id}>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">{item.description}</td>
-                  <td className="py-3.5 px-4 text-center font-mono-numbers">{item.quantity}</td>
-                  <td className="py-3.5 px-4 text-right font-mono-numbers">{formatFCFA(item.unitPrice)}</td>
-                  <td className="py-3.5 px-4 text-right font-mono-numbers font-bold text-slate-900">
-                    {formatFCFA(item.lineTotal)}
-                  </td>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {invoice.items.map((item, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50">
+                  <td className="py-4 px-4 font-semibold text-slate-900">{item.description}</td>
+                  <td className="py-4 px-4 text-center font-mono font-bold text-slate-700">{item.quantity}</td>
+                  <td className="py-4 px-4 text-right font-mono font-bold text-slate-700">{formatFCFA(item.unitPrice)}</td>
+                  <td className="py-4 px-4 text-right font-mono font-extrabold text-slate-900">{formatFCFA(item.lineTotal)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Breakdown & Totals */}
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-8 pt-6 border-t border-slate-200">
-          <div className="space-y-3 max-w-md">
-            <p className="text-xs font-bold text-slate-700">Instructions de Règlement :</p>
-            <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
-              {invoice.notes}
-            </p>
+        {/* Totals Breakdown */}
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4 border-t border-slate-200">
+          <div className="space-y-2 text-xs text-slate-500 max-w-sm">
+            <p className="font-bold text-slate-700">Conditions de paiement & Mentions :</p>
+            <p>Paiement exigible à réception. Mode de règlement accepté : Wave, Orange Money, MTN MoMo, Espèces, Virement.</p>
           </div>
 
-          <div className="w-full sm:w-72 space-y-2 text-xs font-mono-numbers">
-            <div className="flex justify-between text-slate-600">
+          <div className="w-full sm:w-72 p-4 bg-slate-900 text-white rounded-2xl space-y-2 text-xs">
+            <div className="flex justify-between text-slate-400">
               <span>Sous-total HT :</span>
-              <span>{formatFCFA(invoice.subtotal)}</span>
+              <span className="font-mono font-bold">{formatFCFA(invoice.subtotal)}</span>
             </div>
-            <div className="flex justify-between text-orange-600 font-bold">
+
+            <div className="flex justify-between text-slate-400">
               <span>TVA ({invoice.taxRate}%) :</span>
-              <span>{formatFCFA(invoice.taxAmount)}</span>
+              <span className="font-mono font-bold">{formatFCFA(invoice.taxAmount)}</span>
             </div>
-            <div className="pt-2 border-t border-slate-200 flex justify-between text-base font-black text-slate-900">
-              <span>TOTAL TTC FCFA :</span>
-              <span className="text-orange-600">{formatFCFA(invoice.total)}</span>
+
+            <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-sm">
+              <span className="text-white">Total TTC :</span>
+              <span className="font-mono font-black text-orange-400">{formatFCFA(invoice.total)}</span>
             </div>
           </div>
         </div>
 
-        {/* Observations Field (If Present) */}
-        {invoice.observations && (
-          <div className="pt-6 border-t border-slate-200 space-y-1.5">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-700">Détails ou Observations :</p>
-            <p className="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200 whitespace-pre-wrap">
-              {invoice.observations}
-            </p>
+        {/* Public Checkout Link Box */}
+        <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
+          <div className="space-y-1 text-xs">
+            <p className="font-bold text-orange-950">Guichet de Règlement en Ligne</p>
+            <p className="text-orange-800 font-mono text-[11px] truncate max-w-md">{paymentUrl}</p>
           </div>
-        )}
-
-        {/* Digital Signature Render (If Present) */}
-        {invoice.signatureUrl && (
-          <div className="pt-6 border-t border-slate-200 flex justify-end">
-            <div className="text-center space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Signature Électronique Apposée :</p>
-              {/* eslint-disable-next-html-element-suppression */}
-              <div className="h-20 w-48 border border-slate-200 rounded-xl bg-slate-50 p-1 flex items-center justify-center">
-                <img src={invoice.signatureUrl} alt="Signature Numérique" className="h-full w-full object-contain" />
-              </div>
-            </div>
-          </div>
-        )}
+          <button
+            onClick={handleOpenPaymentPage}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-xs shrink-0 flex items-center gap-1.5"
+          >
+            <span>Ouvrir la page de paiement</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
