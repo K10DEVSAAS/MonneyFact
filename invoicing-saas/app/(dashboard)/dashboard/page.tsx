@@ -16,17 +16,23 @@ export default function DashboardPage() {
   const { user } = useAuth();
 
   const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
+  const isBusiness = organization.plan === 'Business';
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem('monneyfact_subsidiaries_list');
-      if (saved) setSubsidiaries(JSON.parse(saved));
+      if (saved) {
+        const all: Subsidiary[] = JSON.parse(saved);
+        // STRICT DATA ISOLATION FILTER BY ORGANIZATION ID
+        const ownSubs = all.filter((s) => s.organizationId === organization.id);
+        setSubsidiaries(ownSubs);
+      }
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [organization.id]);
 
-  const activeSub = activeSubsidiaryId !== 'global'
+  const activeSub = (isBusiness && activeSubsidiaryId !== 'global')
     ? subsidiaries.find((s) => s.id === activeSubsidiaryId)
     : null;
 
@@ -47,17 +53,17 @@ export default function DashboardPage() {
                 <span>{organization.name}</span>
               </span>
 
-              {activeSub ? (
+              {isBusiness && activeSub ? (
                 <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-extrabold border border-amber-500/30 inline-flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5" />
                   <span>Contexte Filiale : {activeSub.name} ({activeSub.city})</span>
                 </span>
-              ) : (
+              ) : isBusiness && subsidiaries.length > 0 ? (
                 <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-extrabold border border-emerald-500/30 inline-flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5" />
                   <span>📊 Vue Consolidée (Toutes les Agences)</span>
                 </span>
-              )}
+              ) : null}
             </div>
 
             <h2 className="text-2xl lg:text-3xl font-black tracking-tight">
@@ -66,7 +72,7 @@ export default function DashboardPage() {
             <p className="text-zinc-400 text-sm max-w-xl">
               {activeSub
                 ? `Données de facturation et encaissements filtrés uniquement pour l'établissement "${activeSub.name}".`
-                : 'Voici l\'état récapitulatif consolidé de toutes vos filiales et agences régionales en FCFA.'}
+                : 'Voici l\'état récapitulatif général de votre activité de facturation et d\'encaissement en FCFA.'}
             </p>
           </div>
 
@@ -140,8 +146,8 @@ export default function DashboardPage() {
       {/* 4 Financial Stat KPI Cards */}
       <StatCards stats={stats} />
 
-      {/* CONSOLIDATED SUBSIDIARIES BREAKDOWN TABLE (When in Global View) */}
-      {activeSubsidiaryId === 'global' && subsidiaries.length > 0 && (
+      {/* CONSOLIDATED SUBSIDIARIES BREAKDOWN TABLE (Only for Business Plan with registered sub-companies) */}
+      {isBusiness && activeSubsidiaryId === 'global' && subsidiaries.length > 0 && (
         <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
