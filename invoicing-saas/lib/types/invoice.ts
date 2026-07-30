@@ -52,6 +52,7 @@ export interface Client {
 export interface Organization {
   id: string;
   name: string;
+  email?: string;
   address: string;
   phone: string;
   logoUrl?: string;

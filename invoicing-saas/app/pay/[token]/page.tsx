@@ -109,6 +109,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
             paymentMethod: dbInv.payment_method,
             paymentTransactionId: dbInv.payment_transaction_id,
             paidAt: dbInv.paid_at,
+            createdAt: dbInv.created_at || new Date().toISOString(),
             items: formattedItems.length > 0 ? formattedItems : [
               { id: '1', description: 'Prestation de service / Facture', quantity: 1, unitPrice: Number(dbInv.total), lineTotal: Number(dbInv.total) }
             ],
