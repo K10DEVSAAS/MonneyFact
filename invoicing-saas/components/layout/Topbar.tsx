@@ -37,6 +37,8 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   const today = formatDate(new Date().toISOString());
   const unreadCount = isAdmin ? unreadAdminNotifCount : unreadCompanyNotifCount;
+  const isBusiness = organization.plan === 'Business';
+  const hasSubCompanies = isBusiness && subsidiaries.length > 0;
 
   const activeSubName = activeSubsidiaryId === 'global'
     ? '📊 Vue Consolidée (Toutes les Agences)'
@@ -66,10 +68,10 @@ export const Topbar: React.FC<TopbarProps> = ({
                 )}
               </div>
 
-              {/* CLEAN CONTEXT BADGE OR SWITCHER */}
+              {/* CONTEXT SWITCHER ONLY IF BUSINESS PLAN AND SUB-COMPANIES EXIST */}
               {!isAdmin && (
                 <div className="relative mt-0.5">
-                  {subsidiaries.length > 0 ? (
+                  {hasSubCompanies ? (
                     <>
                       <button
                         onClick={() => setIsSubDropdownOpen(!isSubDropdownOpen)}
@@ -127,7 +129,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                       )}
                     </>
                   ) : (
-                    /* CLEAN BADGE FOR SINGLE COMPANY STATE */
+                    /* CLEAN BADGE FOR SINGLE COMPANY OR NON-BUSINESS PLANS */
                     <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-lg">
                       <Building className="w-3 h-3 text-orange-600" />
                       <span className="truncate">{organization.name}</span>
