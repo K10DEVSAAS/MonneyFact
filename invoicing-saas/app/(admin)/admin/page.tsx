@@ -22,38 +22,76 @@ export default function AdminCockpitPage() {
   const [liveCompanies, setLiveCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // FETCH LIVE REAL-TIME ORGANIZATIONS FROM SUPABASE DB ON MOUNT
+  // FETCH LIVE REAL-TIME ORGANIZATIONS FROM SUPABASE DB & LOCALSTORE ON MOUNT
   useEffect(() => {
+    let isMounted = true;
+
     const fetchCompanies = async () => {
       setLoading(true);
+
       try {
+        const savedListStr = localStorage.getItem('monneyfact_companies_list');
+        const localList: any[] = savedListStr ? JSON.parse(savedListStr) : registeredCompanies;
+
         const dbCompanies = await dbService.getAllRegisteredCompanies();
-        if (dbCompanies && dbCompanies.length > 0) {
-          const formatted = dbCompanies.map((c) => ({
+
+        const mergedMap = new Map();
+
+        // 1. Add Local Store companies
+        localList.forEach((c) => {
+          mergedMap.set(c.ownerEmail || c.name, {
             id: c.id,
             name: c.name,
-            ownerName: c.name,
-            ownerEmail: c.email,
-            city: 'Abidjan',
-            plan: 'Pro',
-            status: 'active',
-            registeredAt: new Date(c.created_at || Date.now()).toISOString().split('T')[0],
-            totalInvoiced: 0,
-            monthlySubscription: 5000,
-          }));
-          setLiveCompanies(formatted);
-        } else {
-          setLiveCompanies(registeredCompanies);
+            ownerName: c.ownerName || c.name,
+            ownerEmail: c.ownerEmail,
+            city: c.city || 'Abidjan',
+            plan: c.plan || 'Pro',
+            status: c.status || 'active',
+            registeredAt: c.registeredAt || new Date().toISOString().split('T')[0],
+            totalInvoiced: c.totalInvoiced || 0,
+            monthlySubscription: c.monthlySubscription !== undefined ? c.monthlySubscription : (c.plan === 'Business' ? 15000 : c.plan === 'Gratuit' ? 0 : 5000),
+          });
+        });
+
+        // 2. Add Supabase DB companies if not present
+        if (dbCompanies && dbCompanies.length > 0) {
+          dbCompanies.forEach((c) => {
+            const key = c.email || c.name;
+            if (!mergedMap.has(key)) {
+              mergedMap.set(key, {
+                id: c.id,
+                name: c.name,
+                ownerName: c.name,
+                ownerEmail: c.email || 'contact@entreprise.ci',
+                city: 'Abidjan',
+                plan: 'Pro',
+                status: 'active',
+                registeredAt: new Date(c.created_at || Date.now()).toISOString().split('T')[0],
+                totalInvoiced: 0,
+                monthlySubscription: 5000,
+              });
+            }
+          });
+        }
+
+        const mergedArray = Array.from(mergedMap.values());
+
+        if (isMounted) {
+          setLiveCompanies(mergedArray);
         }
       } catch (e) {
         console.error(e);
-        setLiveCompanies(registeredCompanies);
+        if (isMounted) setLiveCompanies(registeredCompanies);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchCompanies();
+
+    return () => {
+      isMounted = false;
+    };
   }, [registeredCompanies]);
 
   const displayList = liveCompanies.length > 0 ? liveCompanies : registeredCompanies;
@@ -62,12 +100,13 @@ export default function AdminCockpitPage() {
     return (
       comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       comp.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (comp.ownerEmail && comp.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase())) ||
       comp.city.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
   const totalInvoicedPlatform = displayList.reduce((sum, c) => sum + (c.totalInvoiced || 0), 0);
-  const totalMRR = displayList.reduce((sum, c) => sum + (c.monthlySubscription || 5000), 0);
+  const totalMRR = displayList.reduce((sum, c) => sum + (c.monthlySubscription !== undefined ? c.monthlySubscription : 5000), 0);
 
   return (
     <div className="space-y-6 animate-fade-in text-zinc-100">
@@ -110,7 +149,7 @@ export default function AdminCockpitPage() {
           <h3 className="text-2xl font-extrabold font-mono text-white">
             {loading ? <RefreshCw className="w-6 h-6 animate-spin text-orange-500" /> : displayList.length}
           </h3>
-          <p className="text-xs text-emerald-400 font-semibold">{displayList.length} entreprise(s) active(s) en BD</p>
+          <p className="text-xs text-emerald-400 font-semibold">{displayList.length} entreprise(s) active(s)</p>
         </div>
 
         <div className="p-5 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-3">
@@ -121,7 +160,7 @@ export default function AdminCockpitPage() {
             </div>
           </div>
           <h3 className="text-2xl font-extrabold font-mono text-emerald-400">{formatFCFA(totalMRR)}</h3>
-          <p className="text-xs text-zinc-400 font-semibold">Cumul des abonnements</p>
+          <p className="text-xs text-zinc-400 font-semibold">Cumul des abonnements mensuels</p>
         </div>
 
         <div className="p-5 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-3">
@@ -251,7 +290,7 @@ export default function AdminCockpitPage() {
 
                     <td className="py-4 px-4 text-center">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
-                        {comp.plan || 'Pro'} ({formatFCFA(comp.monthlySubscription || 5000)}/m)
+                        {comp.plan || 'Pro'} ({formatFCFA(comp.monthlySubscription !== undefined ? comp.monthlySubscription : 5000)}/m)
                       </span>
                     </td>
 

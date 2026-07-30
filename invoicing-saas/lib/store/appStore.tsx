@@ -31,7 +31,7 @@ interface AppStoreType {
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   deleteClient: (id: string) => void;
   updateOrganization: (orgData: Partial<Organization>) => void;
-  initializeZeroAccount: (companyName: string, email: string) => void;
+  initializeZeroAccount: (companyName: string, email: string, plan?: 'Gratuit' | 'Pro' | 'Business') => void;
   markCompanyNotifAsRead: (id: string) => void;
   markAllCompanyNotifsAsRead: () => void;
   deleteCompanyNotif: (id: string) => void;
@@ -87,7 +87,9 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (savedAdminNotifs && isSubscribed) setAdminNotifications(JSON.parse(savedAdminNotifs));
 
         const savedCompList = localStorage.getItem('monneyfact_companies_list');
-        if (savedCompList && isSubscribed) setRegisteredCompanies(JSON.parse(savedCompList));
+        if (savedCompList && isSubscribed) {
+          setRegisteredCompanies(JSON.parse(savedCompList));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -297,11 +299,18 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     addCompanyNotif('Profil Mis à Jour', 'Les informations officielles de votre entreprise ont été mises à jour.', 'info');
   };
 
-  const initializeZeroAccount = (companyName: string, email: string) => {
-    const newOrgId = DEFAULT_ORG_UUID;
+  const initializeZeroAccount = (
+    companyName: string,
+    email: string,
+    plan: 'Gratuit' | 'Pro' | 'Business' = 'Pro'
+  ) => {
+    const monthlySubscription = plan === 'Business' ? 15000 : plan === 'Pro' ? 5000 : 0;
+    const newOrgId = getValidUuid();
+
     const newOrg: Organization = {
       id: newOrgId,
       name: companyName,
+      email,
       address: 'Abidjan, Côte d\'Ivoire',
       phone: '+225 07 00 00 00 00',
       logoUrl: '',
@@ -318,19 +327,26 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ownerName: companyName,
       ownerEmail: email,
       city: 'Abidjan',
-      plan: 'Pro',
+      plan,
       status: 'active',
       registeredAt: new Date().toISOString().split('T')[0],
       totalInvoiced: 0,
-      monthlySubscription: 5000,
+      monthlySubscription,
     };
-    const updatedCompanies = [newCompany, ...registeredCompanies];
-    setRegisteredCompanies(updatedCompanies);
+
+    const savedCompList = localStorage.getItem('monneyfact_companies_list');
+    let currentCompanies: RegisteredCompany[] = savedCompList ? JSON.parse(savedCompList) : registeredCompanies;
+
+    if (!currentCompanies.some((c) => c.ownerEmail === email || c.name === companyName)) {
+      currentCompanies = [newCompany, ...currentCompanies];
+    }
+
+    setRegisteredCompanies(currentCompanies);
 
     const welcomeNotif: AppNotification = {
       id: `cnotif-${Date.now()}`,
       title: 'Bienvenue sur MonneyFact !',
-      message: `Votre compte entreprise "${companyName}" est prêt et initialisé à 0.`,
+      message: `Votre compte entreprise "${companyName}" (Formule ${plan}) est prêt et initialisé à 0.`,
       type: 'success',
       read: false,
       createdAt: new Date().toISOString(),
@@ -344,14 +360,26 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('monneyfact_invoices', JSON.stringify([]));
       localStorage.setItem('monneyfact_clients', JSON.stringify([]));
       localStorage.setItem(`monneyfact_notifs_${newOrgId}`, JSON.stringify(newCompanyNotifs));
-      localStorage.setItem('monneyfact_companies_list', JSON.stringify(updatedCompanies));
+      localStorage.setItem('monneyfact_companies_list', JSON.stringify(currentCompanies));
     } catch (e) {
       console.error(e);
     }
 
+    // Sync organization to Supabase DB
+    supabase.from('organizations').upsert({
+      id: newOrgId,
+      name: companyName,
+      email,
+      phone: '+225 07 00 00 00 00',
+      address: 'Abidjan, Côte d\'Ivoire',
+      tax_id: 'NCC Non Renseigné',
+    }).then(({ error }) => {
+      if (error) console.warn('Supabase org sync notice:', error);
+    });
+
     addAdminNotif(
       'Nouvelle Entreprise Inscrite 🚀',
-      `L'entreprise "${companyName}" (${email}) vient de s'inscrire sur le SaaS MonneyFact.`,
+      `L'entreprise "${companyName}" (${email}) vient de s'inscrire sur la formule ${plan} (${monthlySubscription.toLocaleString()} FCFA/m).`,
       'success'
     );
   };

@@ -28,8 +28,8 @@ function SignupFormContent() {
       return;
     }
 
-    // 1. Initialize brand new account at ZERO & PURGE PREVIOUS NOTIFICATIONS
-    initializeZeroAccount(companyName, email);
+    // 1. Initialize brand new account at ZERO with chosen Subscription Plan
+    initializeZeroAccount(companyName, email, selectedPlan);
 
     // 2. Set authenticated user session and navigate to /dashboard
     registerClient(companyName, email, selectedPlan);
