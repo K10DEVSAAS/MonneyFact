@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Building2, Search } from 'lucide-react';
+import { ArrowLeft, Building2, Search, Trash2 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { dbService } from '@/lib/services/dbService';
 import { formatFCFA } from '@/lib/utils/formatters';
+import { supabase } from '@/lib/supabase/client';
 
 export default function CompaniesAdminPage() {
   const { registeredCompanies } = useAppStore();
@@ -43,6 +44,24 @@ export default function CompaniesAdminPage() {
 
   const displayList = liveCompanies.length > 0 ? liveCompanies : registeredCompanies;
 
+  const handleDeleteCompany = async (compId: string, compName: string) => {
+    if (confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ? Cette action effacera le compte et son accès à la plateforme.`)) {
+      const updated = displayList.filter((c) => c.id !== compId && c.name !== compName);
+      setLiveCompanies(updated);
+      try {
+        localStorage.setItem('monneyfact_companies_list', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        await supabase.from('organizations').delete().or(`id.eq.${compId},name.eq.${compName}`);
+      } catch (err) {
+        console.warn('Supabase delete org error:', err);
+      }
+      alert(`Le compte entreprise "${compName}" a été supprimé avec succès du système.`);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-100">
       <div className="flex items-center justify-between">
@@ -61,7 +80,7 @@ export default function CompaniesAdminPage() {
             Répertoire des Entreprises Clientes ({displayList.length})
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Visualisez et gérez toutes les entreprises enregistrées sur la plateforme MonneyFact.
+            Visualisez, gérez et supprimez les comptes entreprises inscrits sur MonneyFact.
           </p>
         </div>
 
@@ -78,15 +97,24 @@ export default function CompaniesAdminPage() {
             {displayList.map((comp) => (
               <div
                 key={comp.id}
-                className="p-5 bg-slate-900 rounded-2xl border border-slate-800 space-y-3"
+                className="p-5 bg-slate-900 rounded-2xl border border-slate-800 space-y-3 relative group"
               >
                 <div className="flex items-center justify-between">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 font-bold text-xs flex items-center justify-center">
                     {comp.name.substring(0, 2).toUpperCase()}
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300">
-                    {comp.plan || 'Pro'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300">
+                      {comp.plan || 'Pro'}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteCompany(comp.id, comp.name)}
+                      className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors"
+                      title="Supprimer le compte entreprise"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div>

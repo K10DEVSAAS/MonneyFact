@@ -16,16 +16,18 @@ import {
   Clock,
   History,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { dbService } from '@/lib/services/dbService';
 import { subscriptionService, PLAN_PRICES } from '@/lib/services/subscriptionService';
 import { formatFCFA } from '@/lib/utils/formatters';
+import { supabase } from '@/lib/supabase/client';
 
 interface AuditEntry {
   id: string;
   adminEmail: string;
-  action: 'suspend' | 'reactivate' | 'cancel' | 'renew';
+  action: 'suspend' | 'reactivate' | 'cancel' | 'renew' | 'delete';
   companyName: string;
   reason: string;
   timestamp: string;
@@ -157,6 +159,36 @@ export default function AdminCockpitPage() {
   const activeCount = displayList.filter((c) => c.status === 'active').length;
   const expiringSoonCount = displayList.filter((c) => c.daysRemaining > 0 && c.daysRemaining <= 5).length;
 
+  const handleDeleteCompany = async (compId: string, compName: string) => {
+    if (confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ? Cette action effacera complètement le compte du système.`)) {
+      const updatedCompanies = displayList.filter((c) => c.id !== compId && c.name !== compName);
+      setLiveCompanies(updatedCompanies);
+      localStorage.setItem('monneyfact_companies_list', JSON.stringify(updatedCompanies));
+
+      try {
+        await supabase.from('organizations').delete().or(`id.eq.${compId},name.eq.${compName}`);
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
+
+      // Audit Log Entry
+      const newLog: AuditEntry = {
+        id: `log-${Date.now()}`,
+        adminEmail: 'admin@monneyfact.ci',
+        action: 'delete',
+        companyName: compName,
+        reason: 'Suppression définitive par le Super Administrateur',
+        timestamp: new Date().toLocaleString('fr-FR'),
+      };
+
+      const updatedLogs = [newLog, ...auditLogs];
+      setAuditLogs(updatedLogs);
+      localStorage.setItem('monneyfact_audit_logs', JSON.stringify(updatedLogs));
+
+      alert(`Le compte entreprise "${compName}" a été supprimé avec succès.`);
+    }
+  };
+
   const handleConfirmAction = () => {
     if (!actionModal.company || !auditReason.trim()) {
       alert('Veuillez spécifier le motif de cette action administrateur.');
@@ -213,7 +245,7 @@ export default function AdminCockpitPage() {
               Cockpit Global de Supervision SaaS
             </h2>
             <p className="text-zinc-300 text-sm max-w-xl">
-              Supervision des abonnements (Découverte, Pro, Business), décompte des jours restants et paiements simulés.
+              Supervision, suspension, réactivation et suppression des comptes entreprises enregistrés.
             </p>
           </div>
 
@@ -279,9 +311,9 @@ export default function AdminCockpitPage() {
       <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
           <div>
-            <h3 className="text-base font-bold text-white">Gestion des Abonnements & Jours Restants</h3>
+            <h3 className="text-base font-bold text-white">Gestion des Abonnements & Comptes Entreprises</h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Supervision des échéances et statut des comptes (Découverte, Pro, Business)
+              Supervision, suspension, réactivation et suppression des comptes clients.
             </p>
           </div>
 
@@ -401,6 +433,15 @@ export default function AdminCockpitPage() {
                             <Play className="w-3 h-3" /> Réactiver
                           </button>
                         )}
+
+                        {/* Super Admin Delete Button */}
+                        <button
+                          onClick={() => handleDeleteCompany(comp.id, comp.name)}
+                          className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                          title="Supprimer définitivement le compte entreprise"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
