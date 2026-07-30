@@ -74,15 +74,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session && session.user && isMounted) {
           const email = session.user.email || '';
           const name = session.user.user_metadata?.full_name || email.split('@')[0];
-          const role: UserRole = email.toLowerCase() === 'admin@monneyfact.ci' ? 'super_admin' : 'client';
+          const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
+          const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
 
           const activeUser: UserSession = {
             id: session.user.id,
-            name,
+            name: isSuperAdmin ? 'Fondateur MonneyFact' : name,
             email,
             role,
-            companyName: `${name} Enterprise`,
-            plan: 'Pro',
+            companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`,
+            plan: 'Business',
           };
 
           setUser(activeUser);
@@ -102,15 +103,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session && session.user && isMounted) {
         const email = session.user.email || '';
         const name = session.user.user_metadata?.full_name || email.split('@')[0];
-        const role: UserRole = email.toLowerCase() === 'admin@monneyfact.ci' ? 'super_admin' : 'client';
+        const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
+        const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
 
         const activeUser: UserSession = {
           id: session.user.id,
-          name,
+          name: isSuperAdmin ? 'Fondateur MonneyFact' : name,
           email,
           role,
-          companyName: `${name} Enterprise`,
-          plan: 'Pro',
+          companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`,
+          plan: 'Business',
         };
 
         setUser(activeUser);
@@ -129,18 +131,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginAsClient = (email?: string) => {
+    const normalizedEmail = (email || '').toLowerCase().trim();
+    const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
+
     const loggedInUser: UserSession = {
-      id: `usr-${Date.now()}`,
-      name: email ? email.split('@')[0] : 'Entreprise Cliente',
+      id: isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`,
+      name: isSuperAdmin ? 'Fondateur MonneyFact' : (email ? email.split('@')[0] : 'Entreprise Cliente'),
       email: email || 'contact@entreprise.ci',
-      role: 'client',
-      companyName: email ? email.split('@')[0] : 'Mon Entreprise',
-      plan: 'Pro',
+      role: isSuperAdmin ? 'super_admin' : 'client',
+      companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (email ? email.split('@')[0] : 'Mon Entreprise'),
+      plan: 'Business',
     };
+
     setUser(loggedInUser);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(loggedInUser));
-    router.push('/dashboard');
+
+    if (isSuperAdmin) {
+      router.push('/admin');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   const loginAsAdmin = () => {
