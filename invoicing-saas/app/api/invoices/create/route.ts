@@ -44,10 +44,10 @@ export async function POST(request: Request) {
       console.warn('[API INVOICE CREATE] Org upsert warning:', orgErr);
     }
 
-    // 2. Insert Invoice
+    // 2. Insert Invoice (Standard Insert Without Invalid ON CONFLICT)
     const { data: insertedInvoice, error: invErr } = await supabase
       .from('invoices')
-      .upsert({
+      .insert({
         invoice_number: invoiceNumber,
         organization_id: validOrgId,
         client_name: clientName,
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         observations: observations || '',
         signature_url: signatureUrl || '',
         payment_token: token,
-      }, { onConflict: 'payment_token' })
+      })
       .select('*')
       .single();
 
