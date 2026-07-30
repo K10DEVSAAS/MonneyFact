@@ -67,8 +67,23 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         let currentOrg = mockOrganization;
         if (savedOrg) {
           currentOrg = JSON.parse(savedOrg);
-          if (isSubscribed) setOrganization(currentOrg);
         }
+
+        // DYNAMIC SYNC WITH LOGGED-IN USER PLAN & COMPANY NAME
+        const savedUser = localStorage.getItem('monneyfact_active_user');
+        if (savedUser) {
+          const u = JSON.parse(savedUser);
+          if (u.plan) {
+            currentOrg = {
+              ...currentOrg,
+              name: u.companyName || u.name || currentOrg.name,
+              email: u.email || currentOrg.email,
+              plan: u.plan,
+            };
+          }
+        }
+
+        if (isSubscribed) setOrganization(currentOrg);
 
         const savedInvoices = localStorage.getItem('monneyfact_invoices');
         if (savedInvoices) {
@@ -107,7 +122,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       isSubscribed = false;
     };
-  }, [organization.id]);
+  }, []);
 
   const handleSetActiveSub = (subId: string) => {
     setActiveSubsidiaryId(subId);

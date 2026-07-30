@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Receipt, ArrowRight, User, Menu, X } from 'lucide-react';
+import { ArrowRight, User, Menu, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
+import { Logo } from '@/components/ui/Logo';
 
 export const MarketingNavbar: React.FC = () => {
   const { isAuthenticated, user, role } = useAuth();
@@ -12,21 +13,8 @@ export const MarketingNavbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 lg:px-12 py-3.5 transition-all">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold shadow-md shadow-orange-600/20 group-hover:scale-105 transition-transform">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight">MonneyFact</span>
-              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                🇨🇮 CI
-              </span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden sm:block">Facturation SaaS pour Entrepreneurs</p>
-          </div>
-        </Link>
+        {/* Modern Minimalist Brand Logo */}
+        <Logo variant="default" size="md" href="/" />
 
         {/* Center Nav Links - Desktop */}
         <nav className="hidden md:flex items-center gap-8 text-xs sm:text-sm font-bold text-slate-700">

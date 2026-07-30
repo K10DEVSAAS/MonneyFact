@@ -63,19 +63,24 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex text-slate-900 font-sans">
-      {/* Navigation Sidebar */}
-      <Sidebar
-        isOpen={isMobileSidebarOpen}
-        onClose={() => setIsMobileSidebarOpen(false)}
-      />
+    <div className="min-h-screen bg-slate-100 flex text-slate-900 font-sans print:bg-white print:p-0">
+      {/* Navigation Sidebar - HIDDEN IN PRINT MODE */}
+      <div className="print:hidden">
+        <Sidebar
+          isOpen={isMobileSidebarOpen}
+          onClose={() => setIsMobileSidebarOpen(false)}
+        />
+      </div>
 
       {/* Main Content Area WITH lg:pl-64 TO PREVENT OVERLAPPING WITH FIXED SIDEBAR */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 transition-all">
-        <Topbar onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)} />
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 print:pl-0 print:p-0 transition-all">
+        {/* Topbar Navigation - HIDDEN IN PRINT MODE */}
+        <div className="print:hidden">
+          <Topbar onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)} />
+        </div>
 
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 p-4 lg:p-8 overflow-y-auto print:p-0 print:overflow-visible">
+          <div className="max-w-7xl mx-auto print:max-w-none print:w-full">{children}</div>
         </main>
       </div>
     </div>

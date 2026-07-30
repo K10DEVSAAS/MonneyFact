@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Save, Building, Phone, MapPin, FileCheck, Upload, Image as ImageIcon, CheckCircle2, Trash2, Smartphone, CreditCard, ShieldCheck, Crown, Check, RefreshCw } from 'lucide-react';
+import { Save, Building, Phone, MapPin, FileCheck, Upload, Image as ImageIcon, CheckCircle2, Trash2, Smartphone, CreditCard, ShieldCheck, Crown, Check, RefreshCw, Zap, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { CINETPAY_DEFAULT_CONFIG } from '@/lib/services/cinetpayService';
 import { paymentProvider, PaymentChannel } from '@/lib/services/paymentService';
@@ -122,104 +122,163 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in text-slate-900">
+    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in text-slate-900">
       <div>
-        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Paramètres & Formule d&apos;Abonnement</h2>
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Paramètres & Formules d&apos;Abonnement SaaS</h2>
         <p className="text-xs text-slate-500 mt-1">
-          Configurez votre formule d&apos;abonnement SaaS, vos informations officielles et votre numéro Mobile Money.
+          Gérez votre formule d&apos;abonnement, comparez les fonctionnalités et modifiez vos informations officielles.
         </p>
       </div>
 
-      {/* SUBSCRIPTION PLAN SELECTION SECTION */}
-      <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-xl space-y-6">
-        <div className="flex items-center justify-between">
+      {/* SUBSCRIPTION PLAN SELECTION SECTION (POINT 12) */}
+      <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold">
-              <Crown className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold shadow-md shadow-orange-500/20">
+              <Crown className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-orange-400">Formule Active :</span>
-              <h3 className="text-lg font-black text-white">{currentPlan}</h3>
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400">Formule d&apos;Abonnement Active</span>
+              <h3 className="text-xl font-black text-white">{currentPlan}</h3>
             </div>
           </div>
-          <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-full">
-            {currentPlan === 'Business' ? '15 000 FCFA/mois' : currentPlan === 'Pro' ? '5 000 FCFA/mois' : '0 FCFA/mois'}
-          </span>
+
+          <div className="flex items-center gap-2">
+            {currentPlan === 'Business' && (
+              <span className="px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                <span>Plan Business (15.000 FCFA/m)</span>
+              </span>
+            )}
+            {currentPlan === 'Pro' && (
+              <span className="px-3.5 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Premium Pro (5.000 FCFA/m)</span>
+              </span>
+            )}
+            {currentPlan === 'Découverte' && (
+              <span className="px-3.5 py-1.5 bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-bold rounded-full">
+                Formule Découverte (0 FCFA)
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        {/* Responsive Pricing Cards (Point 12) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
           {/* Plan Découverte */}
           <div
             onClick={() => handleInitiatePlanChange('Découverte')}
-            className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
+            className={`p-6 rounded-3xl border cursor-pointer transition-all space-y-4 relative flex flex-col justify-between ${
               currentPlan === 'Découverte'
-                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
-                : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                ? 'bg-zinc-900 border-orange-500 ring-2 ring-orange-500/30'
+                : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
             }`}
           >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-extrabold text-white text-sm">Découverte</p>
-                <p className="text-orange-400 font-mono font-bold">0 FCFA / mois</p>
-              </div>
-              {currentPlan === 'Découverte' && <Check className="w-5 h-5 text-emerald-400" />}
+            <div className="space-y-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                Débutant / Gratuit
+              </span>
+              <h4 className="font-extrabold text-white text-base">Découverte</h4>
+              <p className="text-2xl font-black font-mono text-orange-400">0 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
+              <p className="text-[11px] text-zinc-400">Pour tester MoneyFact sans engagement.</p>
             </div>
-            <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
-              <li>• Max 5 factures par mois</li>
-              <li>• Max 5 clients dans le répertoire</li>
-              <li>• Calcul automatique TVA 18%</li>
-              <li>• Export PDF simple</li>
+
+            <ul className="text-[11px] text-zinc-300 space-y-2 pt-4 border-t border-zinc-800">
+              <li className="flex items-center gap-2">✓ Max 5 factures / mois</li>
+              <li className="flex items-center gap-2">✓ Max 5 clients dans le répertoire</li>
+              <li className="flex items-center gap-2">✓ Calcul automatique TVA 18%</li>
+              <li className="flex items-center gap-2">✓ Export PDF simple</li>
             </ul>
+
+            <button
+              type="button"
+              className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                currentPlan === 'Découverte'
+                  ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+              }`}
+            >
+              {currentPlan === 'Découverte' ? '✓ Formule Actuelle' : 'Choisir Découverte'}
+            </button>
           </div>
 
           {/* Plan Pro */}
           <div
             onClick={() => handleInitiatePlanChange('Pro')}
-            className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
+            className={`p-6 rounded-3xl border cursor-pointer transition-all space-y-4 relative flex flex-col justify-between ${
               currentPlan === 'Pro'
-                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
+                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30 shadow-xl'
                 : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
             }`}
           >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-extrabold text-white text-sm">Plan Pro ⚡</p>
-                <p className="text-orange-400 font-mono font-bold">5 000 FCFA / mois</p>
-              </div>
-              {currentPlan === 'Pro' && <Check className="w-5 h-5 text-emerald-400" />}
+            <div className="space-y-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 w-max">
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span>Recommandé Entrepreneurs</span>
+              </span>
+              <h4 className="font-extrabold text-white text-base">Premium Pro ⚡</h4>
+              <p className="text-2xl font-black font-mono text-orange-400">5 000 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
+              <p className="text-[11px] text-zinc-400">Facturez en illimité et gérez votre entreprise.</p>
             </div>
-            <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
-              <li>• Factures & Devis <strong>Illimités</strong></li>
-              <li>• Clients <strong>Illimités</strong></li>
-              <li>• Compte Contribuable (NCC)</li>
-              <li>• Suivi encaissements Wave / MoMo</li>
-              <li>• Support prioritaire 7j/7</li>
+
+            <ul className="text-[11px] text-zinc-300 space-y-2 pt-4 border-t border-zinc-800">
+              <li className="flex items-center gap-2 font-semibold text-white">✓ Factures & Devis Illimités</li>
+              <li className="flex items-center gap-2 font-semibold text-white">✓ Clients Illimités</li>
+              <li className="flex items-center gap-2">✓ Numéro NCC & Mentions Légales</li>
+              <li className="flex items-center gap-2">✓ Lien de paiement Wave / MoMo</li>
+              <li className="flex items-center gap-2">✓ Support prioritaire WhatsApp</li>
             </ul>
+
+            <button
+              type="button"
+              className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                currentPlan === 'Pro'
+                  ? 'bg-orange-600 text-white shadow-md'
+                  : 'bg-orange-600 hover:bg-orange-500 text-white'
+              }`}
+            >
+              {currentPlan === 'Pro' ? '✓ Formule Actuelle' : 'Basculer vers le Plan Pro'}
+            </button>
           </div>
 
           {/* Plan Business */}
           <div
             onClick={() => handleInitiatePlanChange('Business')}
-            className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
+            className={`p-6 rounded-3xl border cursor-pointer transition-all space-y-4 relative flex flex-col justify-between ${
               currentPlan === 'Business'
-                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
+                ? 'bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/30 shadow-xl'
                 : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
             }`}
           >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-extrabold text-white text-sm">Plan Business 🚀</p>
-                <p className="text-orange-400 font-mono font-bold">15 000 FCFA / mois</p>
-              </div>
-              {currentPlan === 'Business' && <Check className="w-5 h-5 text-emerald-400" />}
+            <div className="space-y-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 w-max">
+                <Crown className="w-3 h-3 text-amber-400" />
+                <span>Sociétés & Agences</span>
+              </span>
+              <h4 className="font-extrabold text-white text-base">Business 🚀</h4>
+              <p className="text-2xl font-black font-mono text-orange-400">15 000 FCFA <span className="text-xs text-zinc-500 font-sans font-normal">/ mois</span></p>
+              <p className="text-[11px] text-zinc-400">Pour les équipes avec comptables et agences.</p>
             </div>
-            <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
-              <li>• Tout le contenu du Plan Pro</li>
-              <li>• Multi-utilisateurs (Comptables)</li>
-              <li>• Multi-entreprises (Filiales)</li>
-              <li>• Relances SMS & Email automatiques</li>
-              <li>• Export comptable Excel / CSV</li>
+
+            <ul className="text-[11px] text-zinc-300 space-y-2 pt-4 border-t border-zinc-800">
+              <li className="flex items-center gap-2 font-semibold text-amber-300">✓ Tout le contenu du Plan Pro</li>
+              <li className="flex items-center gap-2 font-semibold text-amber-300">✓ Multi-collaborateurs & Comptables</li>
+              <li className="flex items-center gap-2 font-semibold text-amber-300">✓ Multi-entreprises & Agences</li>
+              <li className="flex items-center gap-2">✓ Relances SMS & Email automatiques</li>
+              <li className="flex items-center gap-2">✓ Export comptable Excel (.xlsx / .csv)</li>
             </ul>
+
+            <button
+              type="button"
+              className={`w-full py-2.5 rounded-xl font-extrabold text-xs transition-all ${
+                currentPlan === 'Business'
+                  ? 'bg-amber-500 text-zinc-950 font-black shadow-md'
+                  : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black'
+              }`}
+            >
+              {currentPlan === 'Business' ? '✓ Formule Actuelle' : 'Basculer vers Business'}
+            </button>
           </div>
         </div>
       </div>

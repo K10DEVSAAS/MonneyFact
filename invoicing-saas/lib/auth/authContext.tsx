@@ -40,6 +40,29 @@ const DEMO_ADMIN: UserSession = {
   plan: 'Business',
 };
 
+// Helper function to resolve stored plan for an email
+function resolveUserPlan(email?: string): PlanType {
+  if (!email) return 'Découverte';
+  if (email.toLowerCase() === 'admin@monneyfact.ci') return 'Business';
+
+  try {
+    const savedStr = localStorage.getItem('monneyfact_companies_list');
+    if (savedStr) {
+      const companies: any[] = JSON.parse(savedStr);
+      const found = companies.find(
+        (c) => (c.ownerEmail && c.ownerEmail.toLowerCase() === email.toLowerCase()) ||
+               (c.email && c.email.toLowerCase() === email.toLowerCase())
+      );
+      if (found && found.plan) {
+        return found.plan === 'Gratuit' ? 'Découverte' : found.plan;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return 'Découverte';
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
@@ -61,7 +84,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const savedUser = localStorage.getItem('monneyfact_active_user');
       if (savedUser && isMounted) {
-        setUser(JSON.parse(savedUser));
+        const parsed: UserSession = JSON.parse(savedUser);
+        // Ensure plan is synced with company record
+        parsed.plan = resolveUserPlan(parsed.email);
+        setUser(parsed);
         setIsLoadingSession(false);
       }
     } catch (e) {
@@ -77,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const name = session.user.user_metadata?.full_name || email.split('@')[0];
           const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
           const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
+          const actualPlan = resolveUserPlan(email);
 
           const activeUser: UserSession = {
             id: session.user.id,
@@ -84,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email,
             role,
             companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`,
-            plan: 'Business',
+            plan: actualPlan,
           };
 
           setUser(activeUser);
@@ -106,6 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const name = session.user.user_metadata?.full_name || email.split('@')[0];
         const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
         const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
+        const actualPlan = resolveUserPlan(email);
 
         const activeUser: UserSession = {
           id: session.user.id,
@@ -113,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email,
           role,
           companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`,
-          plan: 'Business',
+          plan: actualPlan,
         };
 
         setUser(activeUser);
@@ -134,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsClient = (email?: string) => {
     const normalizedEmail = (email || '').toLowerCase().trim();
     const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
+    const actualPlan = resolveUserPlan(email);
 
     const loggedInUser: UserSession = {
       id: isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`,
@@ -141,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: email || 'contact@entreprise.ci',
       role: isSuperAdmin ? 'super_admin' : 'client',
       companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (email ? email.split('@')[0] : 'Mon Entreprise'),
-      plan: 'Business',
+      plan: actualPlan,
     };
 
     setUser(loggedInUser);
@@ -171,9 +200,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       companyName,
       plan,
     };
+
     setUser(newUser);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(newUser));
+
+    // Save to company list as well
+    try {
+      const savedStr = localStorage.getItem('monneyfact_companies_list');
+      const companies: any[] = savedStr ? JSON.parse(savedStr) : [];
+      const newCompany = {
+        id: `org-${Date.now()}`,
+        name: companyName,
+        ownerName: companyName,
+        ownerEmail: email,
+        city: 'Abidjan',
+        plan: plan,
+        status: 'active',
+        registeredAt: new Date().toISOString().split('T')[0],
+        totalInvoiced: 0,
+      };
+      localStorage.setItem('monneyfact_companies_list', JSON.stringify([newCompany, ...companies]));
+    } catch (e) {
+      console.error(e);
+    }
+
     router.push('/dashboard');
   };
 

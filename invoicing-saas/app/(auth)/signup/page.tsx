@@ -3,15 +3,16 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Receipt, Mail, Lock, Building, ArrowRight, Check, CreditCard, ShieldCheck, Smartphone, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Building, ArrowRight, Check, CreditCard, ShieldCheck, Smartphone, RefreshCw, ArrowLeft, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
 import { paymentProvider, PaymentChannel } from '@/lib/services/paymentService';
 import { PlanType } from '@/lib/types/invoice';
+import { Logo } from '@/components/ui/Logo';
 
 function SignupFormContent() {
   const { registerClient, loginWithGoogle } = useAuth();
-  const { initializeZeroAccount } = useAppStore();
+  const { initializeZeroAccount, registeredCompanies } = useAppStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawPlan = searchParams?.get('plan') || 'Pro';
@@ -20,7 +21,10 @@ function SignupFormContent() {
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanType>(initialPlan);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Simulated Payment Modal State
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -30,12 +34,56 @@ function SignupFormContent() {
 
   const price = selectedPlan === 'Business' ? 15000 : selectedPlan === 'Pro' ? 5000 : 0;
 
+  // REINFORCED REGISTRATION VALIDATION (POINT 6)
+  const validateForm = (): boolean => {
+    setErrorMessage('');
+
+    if (!companyName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setErrorMessage('Veuillez remplir tous les champs obligatoires.');
+      return false;
+    }
+
+    // 1. Email Format Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setErrorMessage('Veuillez saisir une adresse e-mail valide (ex: contact@entreprise.ci).');
+      return false;
+    }
+
+    // 2. Duplicate Email Check
+    const exists = registeredCompanies.some((c) => c.ownerEmail?.toLowerCase() === email.trim().toLowerCase());
+    if (exists) {
+      setErrorMessage('Cette adresse e-mail est déjà associée à un compte entreprise. Veuillez vous connecter.');
+      return false;
+    }
+
+    // 3. Password Length & Complexity Control
+    if (password.length < 8) {
+      setErrorMessage('Le mot de passe doit contenir au moins 8 caractères.');
+      return false;
+    }
+
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+
+    if (!hasUpper || !hasLower || !hasDigit) {
+      setErrorMessage('Le mot de passe doit inclure au moins une majuscule, une minuscule et un chiffre.');
+      return false;
+    }
+
+    // 4. Password Confirmation Matching
+    if (password !== confirmPassword) {
+      setErrorMessage('Les mots de passe ne correspondent pas.');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim() || !email.trim()) {
-      alert('Veuillez remplir tous les champs obligatoires.');
-      return;
-    }
+    if (!validateForm()) return;
 
     // Cas 1: Plan Découverte (0 FCFA) -> Direct Signup without payment
     if (selectedPlan === 'Découverte') {
@@ -77,20 +125,36 @@ function SignupFormContent() {
   };
 
   return (
-    <div className="w-full max-w-xl bg-zinc-950 rounded-3xl border border-zinc-800 p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in text-zinc-100">
+    <div className="w-full max-w-xl bg-zinc-950 rounded-3xl border border-zinc-800 p-6 sm:p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in text-zinc-100">
+      {/* Top Bar Navigation: Retour à la Landing Page (Point 8) */}
+      <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs font-extrabold text-orange-400 hover:text-orange-300 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Retour à l&apos;accueil / Landing Page</span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="text-center space-y-2">
-        <Link href="/" className="inline-flex items-center gap-2 group">
-          <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold shadow-md shadow-orange-600/30">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <span className="font-extrabold text-2xl text-white tracking-tight">MonneyFact</span>
-        </Link>
+        <div className="flex justify-center">
+          <Logo variant="dark" size="lg" href="/" />
+        </div>
         <h2 className="text-xl font-bold text-white tracking-tight">Créer votre compte entreprise</h2>
         <p className="text-xs text-zinc-400">
           Facturez vos clients en moins de 2 minutes en Côte d&apos;Ivoire.
         </p>
       </div>
+
+      {/* Error Alert Box */}
+      {errorMessage && (
+        <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-semibold flex items-start gap-2.5">
+          <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Official Google OAuth 2.0 Button */}
       <button
@@ -116,7 +180,7 @@ function SignupFormContent() {
             d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"
           />
         </svg>
-        <span>Continuer avec Google</span>
+        <span>S&apos;inscrire directement avec Google</span>
       </button>
 
       <div className="relative flex items-center justify-center">
@@ -189,18 +253,42 @@ function SignupFormContent() {
           </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="font-bold text-zinc-300">Mot de passe *</label>
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="password"
-              required
-              placeholder="Au moins 8 caractères"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-white font-medium"
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="font-bold text-zinc-300">Mot de passe *</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="Min. 8 car. (A-z, 0-9)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-10 pr-10 py-3 bg-zinc-900 border border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-white font-medium"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-zinc-300">Confirmer le mot de passe *</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="Répétez le mot de passe"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-white font-medium"
+              />
+            </div>
           </div>
         </div>
 
@@ -223,7 +311,7 @@ function SignupFormContent() {
               <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
                 <CreditCard className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-black text-white">Guichet de Paiement Simulée</h3>
+              <h3 className="text-lg font-black text-white">Guichet de Paiement Simulé</h3>
               <p className="text-xs text-zinc-400">
                 Formule : <strong className="text-white font-bold">{selectedPlan}</strong> — Montant : <strong className="text-orange-400 font-mono font-bold text-sm">{price.toLocaleString()} FCFA/m</strong>
               </p>

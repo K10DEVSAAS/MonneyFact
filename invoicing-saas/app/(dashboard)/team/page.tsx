@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Users,
   UserPlus,
-  Shield,
   Crown,
   Lock,
   CheckCircle2,
@@ -15,12 +13,24 @@ import {
   Copy,
   ExternalLink,
   Check,
-  Building2,
+  Clock,
+  History,
   ShieldCheck,
+  Eye,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { emailService } from '@/lib/services/emailService';
 import { RoleType, PermissionKey, TeamMember, Subsidiary } from '@/lib/types/invoice';
+import { formatDate } from '@/lib/utils/formatters';
+
+interface AuditLogEntry {
+  id: string;
+  userEmail: string;
+  userName: string;
+  action: string;
+  target: string;
+  timestamp: string;
+}
 
 export default function TeamPage() {
   const { organization } = useAppStore();
@@ -64,9 +74,30 @@ export default function TeamPage() {
     },
   ]);
 
+  // Audit Log State (Point 3)
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([
+    {
+      id: 'log-1',
+      userEmail: organization.email || 'gerant@entreprise.ci',
+      userName: organization.name,
+      action: 'Création Facture N° FAC-2026-001',
+      target: 'Facturation',
+      timestamp: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: 'log-2',
+      userEmail: 'comptable@cabinet-abidjan.ci',
+      userName: 'Cabinet Comptable CI',
+      action: 'Exportation Rapport Financier (.xlsx)',
+      target: 'Comptabilité',
+      timestamp: new Date(Date.now() - 7200000).toISOString(),
+    },
+  ]);
+
   // Form state for creating member with fine permissions & scoping
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<RoleType>('Gestionnaire');
+  const [inviteExpiration, setInviteExpiration] = useState<'10m' | '30m' | '1h' | '24h'>('30m');
   const [accessScope, setAccessScope] = useState<'global' | 'limited'>('global');
   const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
   const [selectedPermissions, setSelectedPermissions] = useState<PermissionKey[]>([
@@ -78,10 +109,11 @@ export default function TeamPage() {
   const [sending, setSending] = useState(false);
 
   // Success Invite Modal with Direct Link
-  const [inviteModal, setInviteModal] = useState<{ open: boolean; email: string; inviteUrl: string }>({
+  const [inviteModal, setInviteModal] = useState<{ open: boolean; email: string; inviteUrl: string; expiryText: string }>({
     open: false,
     email: '',
     inviteUrl: '',
+    expiryText: '',
   });
 
   const [copied, setCopied] = useState(false);
@@ -129,7 +161,13 @@ export default function TeamPage() {
     setSending(true);
 
     const token = `inv-${Date.now()}`;
-    const expiresAt = new Date(Date.now() + 48 * 3600 * 1000).toLocaleString('fr-FR');
+    const expiryLabels = {
+      '10m': '10 Minutes',
+      '30m': '30 Minutes',
+      '1h': '1 Heure',
+      '24h': '24 Heures',
+    };
+    const expiresAtText = expiryLabels[inviteExpiration];
 
     // 1. Dispatch Email via Centralized Email Service
     const emailResult = await emailService.sendInvitationEmail({
@@ -137,7 +175,7 @@ export default function TeamPage() {
       companyName: organization.name,
       role: newRole,
       token,
-      expiresAt,
+      expiresAt: expiresAtText,
     });
 
     // 2. Add member with fine permissions & scoping
@@ -154,12 +192,23 @@ export default function TeamPage() {
       createdAt: new Date().toISOString(),
     };
 
+    const newLog: AuditLogEntry = {
+      id: `log-${Date.now()}`,
+      userEmail: organization.email || 'gerant@entreprise.ci',
+      userName: organization.name,
+      action: `Invitation du collaborateur ${newEmail.trim()} (Expiration ${expiresAtText})`,
+      target: 'Gestion Équipe',
+      timestamp: new Date().toISOString(),
+    };
+
     setMembers([...members, createdMember]);
+    setAuditLogs([newLog, ...auditLogs]);
     setSending(false);
     setInviteModal({
       open: true,
       email: newEmail.trim(),
       inviteUrl: emailResult.inviteUrl,
+      expiryText: expiresAtText,
     });
     setNewEmail('');
   };
@@ -173,9 +222,9 @@ export default function TeamPage() {
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
       <div>
-        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestion des Collaborateurs & Permissions</h2>
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestion des Collaborateurs, Invitations & Traçabilité</h2>
         <p className="text-xs text-slate-500 mt-1">
-          Invitez votre équipe, attribuez des rôles sur-mesure et restreignez les accès par sous-entreprise.
+          Invitez votre équipe, attribuez des rôles sur-mesure, définissez l&apos;expiration des liens et consultez l&apos;historique d&apos;audit.
         </p>
       </div>
 
@@ -190,9 +239,9 @@ export default function TeamPage() {
             <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-full">
               👑 Exclusif au Plan Business (15.000 FCFA/mois)
             </span>
-            <h3 className="text-2xl font-black text-white">Débloquez le Multi-Utilisateurs & Gestion des Rôles</h3>
+            <h3 className="text-2xl font-black text-white">Débloquez le Multi-Utilisateurs & Journal d&apos;Audit</h3>
             <p className="text-xs text-zinc-400">
-              Votre formule actuelle (<strong className="text-white">{organization.plan || 'Pro'}</strong>) ne permet pas d&apos;inviter des collaborateurs. Passez au Plan Business pour partager les accès avec votre équipe et restreindre les permissions.
+              Votre formule actuelle (<strong className="text-white">{organization.plan || 'Pro'}</strong>) ne permet pas d&apos;inviter des collaborateurs. Passez au Plan Business pour partager les accès avec votre équipe et suivre les actions effectuées.
             </p>
           </div>
 
@@ -209,7 +258,7 @@ export default function TeamPage() {
       ) : (
         /* FULL BUSINESS FEATURE CONTENT */
         <div className="space-y-6">
-          {/* Invite Member Form with Roles & Scoping */}
+          {/* Invite Member Form with Expiration Control & Scoping */}
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-6">
             <div className="flex items-center gap-2 text-slate-900 border-b border-slate-100 pb-3">
               <UserPlus className="w-5 h-5 text-orange-600" />
@@ -217,7 +266,7 @@ export default function TeamPage() {
             </div>
 
             <form onSubmit={handleAddMember} className="space-y-6 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700">Adresse Email du Collaborateur *</label>
                   <div className="relative">
@@ -245,6 +294,22 @@ export default function TeamPage() {
                     <option value="Commercial">Commercial</option>
                     <option value="Administrateur Interne">Administrateur Interne</option>
                     <option value="Sur-mesure">Sur-mesure</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-orange-600" /> Expiration de l&apos;Invitation *
+                  </label>
+                  <select
+                    value={inviteExpiration}
+                    onChange={(e) => setInviteExpiration(e.target.value as any)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:bg-white"
+                  >
+                    <option value="10m">10 Minutes (Sécurité maximale)</option>
+                    <option value="30m">30 Minutes (Recommandé)</option>
+                    <option value="1h">1 Heure</option>
+                    <option value="24h">24 Heures</option>
                   </select>
                 </div>
               </div>
@@ -352,7 +417,7 @@ export default function TeamPage() {
                   className="px-6 py-3 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
                 >
                   {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                  <span>Envoyer l&apos;Invitation & Valider les Droits</span>
+                  <span>Générer l&apos;Invitation & Valider les Droits</span>
                 </button>
               </div>
             </form>
@@ -413,10 +478,55 @@ export default function TeamPage() {
               </table>
             </div>
           </div>
+
+          {/* AUDIT TRAIL / HISTORIQUE DES ACTIONS (Point 3) */}
+          <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-slate-900">
+                <History className="w-5 h-5 text-orange-600" />
+                <h3 className="text-sm font-extrabold uppercase tracking-wider">Journal d&apos;Audit Trail & Historique des Collaborateurs</h3>
+              </div>
+              <span className="text-xs font-bold text-slate-500">{auditLogs.length} événements enregistrés</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+                    <th className="py-3 px-4 rounded-l-xl">Auteur de l&apos;Action</th>
+                    <th className="py-3 px-4">Description de l&apos;Opération</th>
+                    <th className="py-3 px-4 text-center">Module</th>
+                    <th className="py-3 px-4 text-right rounded-r-xl">Horodatage</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {auditLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        <div>
+                          <p>{log.userName}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{log.userEmail}</p>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-800 font-semibold">{log.action}</td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          {log.target}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-slate-500 font-mono">
+                        {formatDate(log.timestamp)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* SUCCESS INVITE MODAL WITH DIRECT EMERGENCY LINK */}
+      {/* SUCCESS INVITE MODAL WITH DIRECT EMERGENCY LINK & EXPIRY */}
       {inviteModal.open && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="max-w-md w-full bg-zinc-900 rounded-3xl border border-zinc-800 p-6 space-y-5 text-zinc-100 shadow-2xl text-center">
@@ -429,11 +539,14 @@ export default function TeamPage() {
               <p className="text-xs text-zinc-400">
                 L&apos;invitation et les droits de collaborateur ont été préparés pour <strong className="text-white">{inviteModal.email}</strong>.
               </p>
+              <span className="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold rounded-full">
+                ⏱ Expiration : {inviteModal.expiryText}
+              </span>
             </div>
 
             <div className="p-4 bg-zinc-950 rounded-2xl border border-zinc-800 text-left space-y-2">
               <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider block">
-                Lien d&apos;activation direct (Sécurisé 48h) :
+                Lien d&apos;activation direct (Sécurisé {inviteModal.expiryText}) :
               </span>
               <div className="flex items-center gap-2">
                 <input
@@ -465,7 +578,7 @@ export default function TeamPage() {
 
               <button
                 type="button"
-                onClick={() => setInviteModal({ open: false, email: '', inviteUrl: '' })}
+                onClick={() => setInviteModal({ open: false, email: '', inviteUrl: '', expiryText: '' })}
                 className="px-5 py-2.5 bg-orange-600 text-white text-xs font-extrabold rounded-xl shadow-md"
               >
                 Fermer

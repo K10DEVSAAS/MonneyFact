@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Receipt, Mail, Lock, ArrowRight, CheckCircle2, RefreshCw, ShieldAlert, KeyRound } from 'lucide-react';
+import { Mail, Lock, ArrowRight, CheckCircle2, RefreshCw, ShieldAlert, KeyRound, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { Logo } from '@/components/ui/Logo';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -154,14 +155,22 @@ export default function ForgotPasswordPage() {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md bg-zinc-900 rounded-3xl border border-zinc-800 p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in">
+        {/* Top Bar Navigation: Retour à la Landing Page (Point 8) */}
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-xs font-extrabold text-orange-400 hover:text-orange-300 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Retour à l&apos;accueil / Landing Page</span>
+          </Link>
+        </div>
+
         {/* Header Branding */}
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold shadow-md shadow-orange-600/30">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <span className="font-extrabold text-2xl text-white tracking-tight">MonneyFact</span>
-          </Link>
+          <div className="flex justify-center">
+            <Logo variant="dark" size="lg" href="/" />
+          </div>
           <h2 className="text-xl font-bold text-white tracking-tight">
             {step === 'email' && 'Récupération de mot de passe'}
             {step === 'otp' && 'Vérification du code OTP'}

@@ -9,7 +9,6 @@ import {
   Users,
   Settings,
   X,
-  Receipt,
   Building2,
   LogOut,
   UserCheck,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
+import { Logo } from '@/components/ui/Logo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -57,24 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       >
         {/* Header Branding */}
         <div className="p-5 flex items-center justify-between border-b border-zinc-800/80">
-          <Link href="/dashboard" className="flex items-center gap-3 group">
-            {organization.logoUrl ? (
-              /* eslint-disable-next-html-element-suppression */
-              <div className="w-10 h-10 rounded-xl bg-white p-1 border border-zinc-800 flex items-center justify-center shrink-0">
-                <img src={organization.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-              </div>
-            ) : (
-              <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-600/30 group-hover:scale-105 transition-transform font-bold">
-                <Receipt className="w-5 h-5" />
-              </div>
-            )}
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-lg text-white tracking-tight">MonneyFact</span>
-              </div>
-              <p className="text-xs text-zinc-400 font-medium">Facturation 🇨🇮</p>
-            </div>
-          </Link>
+          <Logo variant="dark" size="md" href="/dashboard" />
           <button
             onClick={onClose}
             className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-900 lg:hidden"
