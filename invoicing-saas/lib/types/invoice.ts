@@ -11,6 +11,36 @@ export type SubsidiaryType =
   | 'Filiale Autonome'
   | 'Succursale';
 
+export type RoleType =
+  | 'Administrateur Interne'
+  | 'Comptable'
+  | 'Gestionnaire'
+  | 'Commercial'
+  | 'Sur-mesure';
+
+export type PermissionKey =
+  | 'create_invoices'
+  | 'edit_invoices'
+  | 'delete_invoices'
+  | 'send_invoices'
+  | 'manage_clients'
+  | 'view_analytics'
+  | 'manage_payments'
+  | 'manage_team';
+
+export interface TeamMember {
+  id: string;
+  organizationId: string;
+  name: string;
+  email: string;
+  role: RoleType;
+  permissions: PermissionKey[];
+  accessScope: 'global' | 'limited';
+  allowedSubsidiaryIds: string[];
+  status: 'Actif' | 'Invitation Envoyée';
+  createdAt: string;
+}
+
 export interface Subsidiary {
   id: string;
   organizationId: string;
@@ -23,6 +53,7 @@ export interface Subsidiary {
   managerName: string;
   rccmNumber?: string;
   taxId?: string;
+  logoUrl?: string;
   status: 'actif' | 'inactif';
   totalInvoiced: number;
   invoiceCount: number;

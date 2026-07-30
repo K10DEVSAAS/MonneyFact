@@ -1,22 +1,80 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, Shield, Crown, Lock, CheckCircle2, Mail, Trash2, RefreshCw, Copy, ExternalLink, Check } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  Shield,
+  Crown,
+  Lock,
+  CheckCircle2,
+  Mail,
+  Trash2,
+  RefreshCw,
+  Copy,
+  ExternalLink,
+  Check,
+  Building2,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { emailService } from '@/lib/services/emailService';
+import { RoleType, PermissionKey, TeamMember, Subsidiary } from '@/lib/types/invoice';
 
 export default function TeamPage() {
   const { organization } = useAppStore();
   const isBusinessPlan = organization.plan === 'Business';
 
-  const [members, setMembers] = useState([
-    { id: 'm1', name: organization.name, email: organization.email || 'gerant@entreprise.ci', role: 'Administrateur', status: 'Actif' },
-    { id: 'm2', name: 'Cabinet Comptable CI', email: 'comptable@cabinet-abidjan.ci', role: 'Comptable Externe', status: 'Actif' },
+  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('monneyfact_subsidiaries_list');
+      if (saved) setSubsidiaries(JSON.parse(saved));
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const [members, setMembers] = useState<TeamMember[]>([
+    {
+      id: 'm1',
+      organizationId: organization.id,
+      name: organization.name,
+      email: organization.email || 'gerant@entreprise.ci',
+      role: 'Administrateur Interne',
+      permissions: ['create_invoices', 'edit_invoices', 'delete_invoices', 'send_invoices', 'manage_clients', 'view_analytics', 'manage_payments', 'manage_team'],
+      accessScope: 'global',
+      allowedSubsidiaryIds: [],
+      status: 'Actif',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'm2',
+      organizationId: organization.id,
+      name: 'Cabinet Comptable CI',
+      email: 'comptable@cabinet-abidjan.ci',
+      role: 'Comptable',
+      permissions: ['view_analytics', 'manage_payments', 'send_invoices'],
+      accessScope: 'global',
+      allowedSubsidiaryIds: [],
+      status: 'Actif',
+      createdAt: new Date().toISOString(),
+    },
   ]);
 
+  // Form state for creating member with fine permissions & scoping
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState('Gestionnaire');
+  const [newRole, setNewRole] = useState<RoleType>('Gestionnaire');
+  const [accessScope, setAccessScope] = useState<'global' | 'limited'>('global');
+  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<PermissionKey[]>([
+    'create_invoices',
+    'send_invoices',
+    'manage_clients',
+  ]);
+
   const [sending, setSending] = useState(false);
 
   // Success Invite Modal with Direct Link
@@ -27,6 +85,42 @@ export default function TeamPage() {
   });
 
   const [copied, setCopied] = useState(false);
+
+  const availablePermissions: { key: PermissionKey; label: string }[] = [
+    { key: 'create_invoices', label: 'Créer des Factures & Devis' },
+    { key: 'edit_invoices', label: 'Modifier les Factures' },
+    { key: 'delete_invoices', label: 'Supprimer des Factures' },
+    { key: 'send_invoices', label: 'Envoyer les Factures (Email & WhatsApp)' },
+    { key: 'manage_clients', label: 'Gérer le Répertoire Clients' },
+    { key: 'view_analytics', label: 'Consulter les Statistiques & CA' },
+    { key: 'manage_payments', label: 'Gérer les Encaissements & Règlements' },
+    { key: 'manage_team', label: 'Gérer les Collaborateurs' },
+  ];
+
+  const handleRoleChange = (role: RoleType) => {
+    setNewRole(role);
+    if (role === 'Administrateur Interne') {
+      setSelectedPermissions(availablePermissions.map((p) => p.key));
+    } else if (role === 'Comptable') {
+      setSelectedPermissions(['view_analytics', 'manage_payments', 'send_invoices']);
+    } else if (role === 'Commercial') {
+      setSelectedPermissions(['create_invoices', 'send_invoices', 'manage_clients']);
+    } else if (role === 'Gestionnaire') {
+      setSelectedPermissions(['create_invoices', 'edit_invoices', 'send_invoices', 'manage_clients', 'manage_payments']);
+    }
+  };
+
+  const togglePermission = (key: PermissionKey) => {
+    setSelectedPermissions((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  const toggleSubId = (subId: string) => {
+    setSelectedSubIds((prev) =>
+      prev.includes(subId) ? prev.filter((id) => id !== subId) : [...prev, subId]
+    );
+  };
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,12 +140,21 @@ export default function TeamPage() {
       expiresAt,
     });
 
-    // 2. Update local state
-    setMembers([
-      ...members,
-      { id: `m-${Date.now()}`, name: newEmail.split('@')[0], email: newEmail.trim(), role: newRole, status: 'Invitation Envoyée' },
-    ]);
+    // 2. Add member with fine permissions & scoping
+    const createdMember: TeamMember = {
+      id: `m-${Date.now()}`,
+      organizationId: organization.id,
+      name: newEmail.split('@')[0],
+      email: newEmail.trim(),
+      role: newRole,
+      permissions: selectedPermissions,
+      accessScope,
+      allowedSubsidiaryIds: accessScope === 'limited' ? selectedSubIds : [],
+      status: 'Invitation Envoyée',
+      createdAt: new Date().toISOString(),
+    };
 
+    setMembers([...members, createdMember]);
     setSending(false);
     setInviteModal({
       open: true,
@@ -70,9 +173,9 @@ export default function TeamPage() {
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
       <div>
-        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestion de l&apos;Équipe & Accès Comptables</h2>
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestion des Collaborateurs & Permissions</h2>
         <p className="text-xs text-slate-500 mt-1">
-          Invitez des collaborateurs, gestionnaires et comptables externes avec envoi d&apos;e-mails automatisé.
+          Invitez votre équipe, attribuez des rôles sur-mesure et restreignez les accès par sous-entreprise.
         </p>
       </div>
 
@@ -87,9 +190,9 @@ export default function TeamPage() {
             <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-full">
               👑 Exclusif au Plan Business (15.000 FCFA/mois)
             </span>
-            <h3 className="text-2xl font-black text-white">Débloquez le Multi-Utilisateurs & Accès Comptables</h3>
+            <h3 className="text-2xl font-black text-white">Débloquez le Multi-Utilisateurs & Gestion des Rôles</h3>
             <p className="text-xs text-zinc-400">
-              Votre formule actuelle (<strong className="text-white">{organization.plan || 'Pro'}</strong>) ne permet pas d&apos;inviter des collaborateurs. Passez au Plan Business pour partager les accès avec votre comptable et votre équipe.
+              Votre formule actuelle (<strong className="text-white">{organization.plan || 'Pro'}</strong>) ne permet pas d&apos;inviter des collaborateurs. Passez au Plan Business pour partager les accès avec votre équipe et restreindre les permissions.
             </p>
           </div>
 
@@ -106,66 +209,170 @@ export default function TeamPage() {
       ) : (
         /* FULL BUSINESS FEATURE CONTENT */
         <div className="space-y-6">
-          {/* Invite Member Form */}
-          <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-slate-900">
+          {/* Invite Member Form with Roles & Scoping */}
+          <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="flex items-center gap-2 text-slate-900 border-b border-slate-100 pb-3">
               <UserPlus className="w-5 h-5 text-orange-600" />
-              <h3 className="text-sm font-extrabold uppercase tracking-wider">Inviter un nouveau membre ou comptable</h3>
+              <h3 className="text-sm font-extrabold uppercase tracking-wider">Ajouter un Collaborateur & Attribuer des Droits</h3>
             </div>
 
-            <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row items-end gap-3 text-xs">
-              <div className="flex-1 space-y-1 w-full">
-                <label className="font-bold text-slate-700">Adresse Email Professionnelle *</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="comptable@entreprise.ci"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:border-orange-500 font-medium"
-                  />
+            <form onSubmit={handleAddMember} className="space-y-6 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Adresse Email du Collaborateur *</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="collaborateur@entreprise.ci"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:border-orange-500 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Rôle Préréglé</label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => handleRoleChange(e.target.value as RoleType)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:bg-white"
+                  >
+                    <option value="Gestionnaire">Gestionnaire</option>
+                    <option value="Comptable">Comptable</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Administrateur Interne">Administrateur Interne</option>
+                    <option value="Sur-mesure">Sur-mesure</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="w-full sm:w-48 space-y-1">
-                <label className="font-bold text-slate-700">Rôle attribué</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:bg-white"
-                >
-                  <option value="Gestionnaire">Gestionnaire</option>
-                  <option value="Comptable Externe">Comptable Externe</option>
-                  <option value="Facturation Seule">Facturation Seule</option>
-                  <option value="Administrateur">Administrateur</option>
-                </select>
+              {/* 1. Fine-grained Permissions Matrix */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="font-extrabold text-slate-900 block">Permissions Accordées :</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  {availablePermissions.map((perm) => (
+                    <label
+                      key={perm.key}
+                      className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                        selectedPermissions.includes(perm.key)
+                          ? 'bg-orange-50 border-orange-300 text-orange-950 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPermissions.includes(perm.key)}
+                        onChange={() => togglePermission(perm.key)}
+                        className="rounded text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="text-[11px] leading-tight">{perm.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={sending}
-                className="w-full sm:w-auto px-5 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md transition-all shrink-0 flex items-center justify-center gap-2"
-              >
-                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                <span>Envoyer l&apos;invitation</span>
-              </button>
+              {/* 2. Scope Option Choice: Global vs Limited to Specific Subsidiaries */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <label className="font-extrabold text-slate-900 block">Scope d&apos;Accès aux Sous-Entreprises / Agences :</label>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <label
+                    className={`flex-1 p-4 rounded-2xl border cursor-pointer space-y-1 transition-all ${
+                      accessScope === 'global'
+                        ? 'bg-orange-50 border-orange-400 text-orange-950 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="scope"
+                        checked={accessScope === 'global'}
+                        onChange={() => setAccessScope('global')}
+                        className="text-orange-600"
+                      />
+                      <span className="font-extrabold text-xs">Option 1 : Accès Global</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 pl-6">
+                      Le collaborateur peut accéder et consulter toutes les filiales et agences de l&apos;entreprise.
+                    </p>
+                  </label>
+
+                  <label
+                    className={`flex-1 p-4 rounded-2xl border cursor-pointer space-y-1 transition-all ${
+                      accessScope === 'limited'
+                        ? 'bg-orange-50 border-orange-400 text-orange-950 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="scope"
+                        checked={accessScope === 'limited'}
+                        onChange={() => setAccessScope('limited')}
+                        className="text-orange-600"
+                      />
+                      <span className="font-extrabold text-xs">Option 2 : Accès Restreint par Agence</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 pl-6">
+                      Le collaborateur est affecté uniquement aux sous-entreprises sélectionnées ci-dessous.
+                    </p>
+                  </label>
+                </div>
+
+                {/* Subsidiary Checkboxes if Limited */}
+                {accessScope === 'limited' && (
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 animate-fade-in">
+                    <span className="font-bold text-slate-800 text-[11px] block">Sélectionner les agences autorisées :</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {subsidiaries.map((sub) => (
+                        <label key={sub.id} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={selectedSubIds.includes(sub.id)}
+                            onChange={() => toggleSubId(sub.id)}
+                            className="rounded text-orange-600"
+                          />
+                          <span>{sub.name} ({sub.city})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="px-6 py-3 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  <span>Envoyer l&apos;Invitation & Valider les Droits</span>
+                </button>
+              </div>
             </form>
           </div>
 
-          {/* Members Table */}
+          {/* Members & Rights Table */}
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">Membres & Invitations Envoyées ({members.length})</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+              Équipe & Permissions Attribuées ({members.length})
+            </h3>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
-                    <th className="py-3 px-4 rounded-l-xl">Membre</th>
+                    <th className="py-3 px-4 rounded-l-xl">Collaborateur</th>
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4 text-center">Rôle</th>
-                    <th className="py-3 px-4 text-center">Statut E-mail</th>
+                    <th className="py-3 px-4 text-center">Scope Accès</th>
+                    <th className="py-3 px-4 text-center">Permissions</th>
                     <th className="py-3 px-4 text-right rounded-r-xl">Action</th>
                   </tr>
                 </thead>
@@ -180,18 +387,17 @@ export default function TeamPage() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            m.status.includes('Envoyée')
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}
-                        >
-                          {m.status}
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                          {m.accessScope === 'global' ? 'Global (Toutes Agences)' : `Restreint (${m.allowedSubsidiaryIds.length} agences)`}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {m.permissions ? `${m.permissions.length} autorisations` : 'Toutes'}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {m.role !== 'Administrateur' && (
+                        {m.role !== 'Administrateur Interne' && (
                           <button
                             onClick={() => setMembers(members.filter((x) => x.id !== m.id))}
                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
@@ -221,7 +427,7 @@ export default function TeamPage() {
             <div className="space-y-2">
               <h3 className="text-xl font-black text-white">Invitation Générée avec Succès !</h3>
               <p className="text-xs text-zinc-400">
-                L&apos;invitation a été transmise à <strong className="text-white">{inviteModal.email}</strong>.
+                L&apos;invitation et les droits de collaborateur ont été préparés pour <strong className="text-white">{inviteModal.email}</strong>.
               </p>
             </div>
 
@@ -253,7 +459,7 @@ export default function TeamPage() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold hover:underline"
               >
-                <span>Tester le lien maintenant</span>
+                <span>Tester l&apos;accès collaborateur</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
 

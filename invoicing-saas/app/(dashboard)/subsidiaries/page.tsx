@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Building2,
   Plus,
@@ -19,13 +20,16 @@ import {
   X,
   Store,
   Building,
+  ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { Subsidiary, SubsidiaryType } from '@/lib/types/invoice';
 import { formatFCFA } from '@/lib/utils/formatters';
 
 export default function SubsidiariesPage() {
-  const { organization, invoices } = useAppStore();
+  const router = useRouter();
+  const { organization, invoices, setActiveSubsidiaryId, activeSubsidiaryId } = useAppStore();
   const isBusinessPlan = organization.plan === 'Business';
 
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
@@ -117,6 +121,12 @@ export default function SubsidiariesPage() {
     }
   };
 
+  // Switch context to specific subsidiary & go to dashboard
+  const handleSwitchContext = (subId: string) => {
+    setActiveSubsidiaryId(subId);
+    router.push('/dashboard');
+  };
+
   // Form State for Adding Établissement
   const [formData, setFormData] = useState({
     name: '',
@@ -183,7 +193,7 @@ export default function SubsidiariesPage() {
     <div className="space-y-6 animate-fade-in text-slate-900">
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-          Architecture Multi-Établissements & Filiales
+          Gestion des Sous-Entreprises, Agences & Filiales
         </h2>
         <p className="text-xs text-slate-500 mt-1">
           Pilotez le Siège Social, les Agences Régionales, Boutiques et Filiales de votre entreprise sous un compte unique.
@@ -287,7 +297,7 @@ export default function SubsidiariesPage() {
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>Créer un Établissement / Agence</span>
+              <span>Créer une Sous-Entreprise / Agence</span>
             </button>
           </div>
 
@@ -296,7 +306,11 @@ export default function SubsidiariesPage() {
             {filteredSubsidiaries.map((sub) => (
               <div
                 key={sub.id}
-                className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
+                className={`p-6 bg-white rounded-2xl border transition-all space-y-4 flex flex-col justify-between ${
+                  activeSubsidiaryId === sub.id
+                    ? 'border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                    : 'border-slate-200 shadow-xs hover:shadow-md'
+                }`}
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -341,14 +355,29 @@ export default function SubsidiariesPage() {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Facturé</span>
-                    <span className="font-mono font-extrabold text-slate-900 text-sm">{formatFCFA(sub.totalInvoiced)}</span>
+                <div className="pt-3 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Facturé</span>
+                      <span className="font-mono font-extrabold text-slate-900 text-sm">{formatFCFA(sub.totalInvoiced)}</span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {sub.status.toUpperCase()}
+                    </span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {sub.status.toUpperCase()}
-                  </span>
+
+                  {/* Switch Context Button */}
+                  <button
+                    onClick={() => handleSwitchContext(sub.id)}
+                    className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      activeSubsidiaryId === sub.id
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white shadow-xs'
+                    }`}
+                  >
+                    <span>{activeSubsidiaryId === sub.id ? '✓ Contexte Actif' : '⚡ Basculer le Dashboard sur cette filiale'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -366,7 +395,7 @@ export default function SubsidiariesPage() {
                 </button>
 
                 <div className="space-y-1">
-                  <h3 className="text-lg font-extrabold text-slate-900">Enregistrer un Établissement / Agence</h3>
+                  <h3 className="text-lg font-extrabold text-slate-900">Enregistrer une Sous-Entreprise / Agence</h3>
                   <p className="text-xs text-slate-500">
                     Configurez une nouvelle filiale ou agence régionale pour l&apos;émission de factures.
                   </p>
@@ -374,7 +403,7 @@ export default function SubsidiariesPage() {
 
                 <form onSubmit={handleCreateBranch} className="space-y-4 text-xs">
                   <div className="space-y-1">
-                    <label className="font-bold text-slate-700">Nom de l&apos;Établissement *</label>
+                    <label className="font-bold text-slate-700">Nom de la Sous-Entreprise *</label>
                     <input
                       type="text"
                       required
@@ -475,7 +504,7 @@ export default function SubsidiariesPage() {
                       className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Enregistrer l&apos;Établissement</span>
+                      <span>Enregistrer la Sous-Entreprise</span>
                     </button>
                   </div>
                 </form>

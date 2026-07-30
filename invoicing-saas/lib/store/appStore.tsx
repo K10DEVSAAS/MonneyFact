@@ -26,6 +26,8 @@ interface AppStoreType {
   registeredCompanies: RegisteredCompany[];
   unreadCompanyNotifCount: number;
   unreadAdminNotifCount: number;
+  activeSubsidiaryId: string;
+  setActiveSubsidiaryId: (id: string) => void;
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => Promise<void>;
   updateInvoiceStatus: (id: string, status: Invoice['status']) => void;
   deleteInvoice: (id: string) => void;
@@ -49,6 +51,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [organization, setOrganization] = useState<Organization>(mockOrganization);
   const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
   const [clients, setClients] = useState<Client[]>(mockClients);
+  const [activeSubsidiaryId, setActiveSubsidiaryId] = useState<string>('global');
 
   const [companyNotifications, setCompanyNotifications] = useState<AppNotification[]>([]);
   const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
@@ -76,6 +79,9 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const savedClients = localStorage.getItem('monneyfact_clients');
         if (savedClients && isSubscribed) setClients(JSON.parse(savedClients));
 
+        const savedSubId = localStorage.getItem('monneyfact_active_sub_id');
+        if (savedSubId && isSubscribed) setActiveSubsidiaryId(savedSubId);
+
         const orgNotifKey = `monneyfact_notifs_${currentOrg.id}`;
         const savedCompanyNotifs = localStorage.getItem(orgNotifKey);
         if (savedCompanyNotifs && isSubscribed) {
@@ -102,6 +108,15 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isSubscribed = false;
     };
   }, [organization.id]);
+
+  const handleSetActiveSub = (subId: string) => {
+    setActiveSubsidiaryId(subId);
+    try {
+      localStorage.setItem('monneyfact_active_sub_id', subId);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const saveCompanyNotifs = (list: AppNotification[], orgId: string = organization.id) => {
     setCompanyNotifications(list);
@@ -145,17 +160,26 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveAdminNotifs([notif, ...adminNotifications]);
   };
 
+  // Compute Context-Aware Invoices & Clients
+  const contextInvoices = activeSubsidiaryId === 'global'
+    ? invoices
+    : invoices.filter((i) => i.subsidiaryId === activeSubsidiaryId);
+
+  const contextClients = activeSubsidiaryId === 'global'
+    ? clients
+    : clients.filter((c) => c.subsidiaryId === activeSubsidiaryId || !c.subsidiaryId);
+
   const stats: DashboardStats = {
-    totalInvoiced: invoices.reduce((sum, inv) => sum + inv.total, 0),
-    totalPaid: invoices.filter((i) => i.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
-    totalPending: invoices.filter((i) => i.status === 'sent').reduce((sum, inv) => sum + inv.total, 0),
-    totalOverdue: invoices.filter((i) => i.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0),
+    totalInvoiced: contextInvoices.reduce((sum, inv) => sum + inv.total, 0),
+    totalPaid: contextInvoices.filter((i) => i.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
+    totalPending: contextInvoices.filter((i) => i.status === 'sent').reduce((sum, inv) => sum + inv.total, 0),
+    totalOverdue: contextInvoices.filter((i) => i.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0),
     invoiceCounts: {
-      total: invoices.length,
-      draft: invoices.filter((i) => i.status === 'draft').length,
-      sent: invoices.filter((i) => i.status === 'sent').length,
-      paid: invoices.filter((i) => i.status === 'paid').length,
-      overdue: invoices.filter((i) => i.status === 'overdue').length,
+      total: contextInvoices.length,
+      draft: contextInvoices.filter((i) => i.status === 'draft').length,
+      sent: contextInvoices.filter((i) => i.status === 'sent').length,
+      paid: contextInvoices.filter((i) => i.status === 'paid').length,
+      overdue: contextInvoices.filter((i) => i.status === 'overdue').length,
     },
   };
 
@@ -180,7 +204,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     try {
-      console.log('[DEBUG STORE] Sending invoice payload to /api/invoices/create:', generatedId);
       await fetch('/api/invoices/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -366,20 +389,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error(e);
     }
 
-    // Sync organization to Supabase DB
-    supabase.from('organizations').upsert({
-      id: newOrgId,
-      name: companyName,
-      email,
-      phone: '+225 07 00 00 00 00',
-      address: 'Abidjan, Côte d\'Ivoire',
-      tax_id: 'NCC Non Renseigné',
-      plan,
-      expires_at: expiresAt,
-    }).then(({ error }) => {
-      if (error) console.warn('Supabase org sync notice:', error);
-    });
-
     addAdminNotif(
       'Nouvelle Entreprise Inscrite 🚀',
       `L'entreprise "${companyName}" (${email}) vient de s'inscrire sur la formule ${plan} (${monthlySubscription.toLocaleString()} FCFA/m).`,
@@ -417,14 +426,16 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     <AppStoreContext.Provider
       value={{
         organization,
-        invoices,
-        clients,
+        invoices: contextInvoices,
+        clients: contextClients,
         stats,
         companyNotifications,
         adminNotifications,
         registeredCompanies,
         unreadCompanyNotifCount,
         unreadAdminNotifCount,
+        activeSubsidiaryId,
+        setActiveSubsidiaryId: handleSetActiveSub,
         addInvoice,
         updateInvoiceStatus,
         deleteInvoice,
