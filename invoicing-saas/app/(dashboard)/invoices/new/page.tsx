@@ -37,8 +37,11 @@ export default function NewInvoicePage() {
       const saved = localStorage.getItem('monneyfact_subsidiaries_list');
       if (saved) {
         const allSubs: Subsidiary[] = JSON.parse(saved);
-        // STRICT SECURITY FILTER: Only load sub-companies belonging to current organization
-        const ownSubs = allSubs.filter((s) => s.organizationId === organization.id);
+        // STRICT SECURITY FILTER & CLEAN MOCK DATA:
+        // Only load sub-companies belonging to current organization AND exclude legacy mock IDs
+        const ownSubs = allSubs.filter(
+          (s) => s.organizationId === organization.id && !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
+        );
         setSubsidiariesList(ownSubs);
       }
     } catch (e) {
@@ -188,10 +191,10 @@ export default function NewInvoicePage() {
               <p className="text-xs text-slate-500">Calcul automatique de la TVA 18% et devises en FCFA</p>
             </div>
 
-            {/* Issuer Branch / Sub-company Selector - ONLY SHOWN FOR BUSINESS PLAN WITH REGISTERED SUB-COMPANIES */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
-              {isBusinessPlan && subsidiariesList.length > 0 ? (
+            {/* Issuer Branch / Sub-company Selector - ONLY RENDERED FOR BUSINESS PLAN WITH > 0 REGISTERED SUB-COMPANIES */}
+            {isBusinessPlan && subsidiariesList.length > 0 && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
                 <select
                   value={selectedSubsidiaryId}
                   onChange={(e) => setSelectedSubsidiaryId(e.target.value)}
@@ -204,10 +207,8 @@ export default function NewInvoicePage() {
                     </option>
                   ))}
                 </select>
-              ) : (
-                <span className="text-xs font-extrabold text-slate-900">{organization.name}</span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Client Selection Dropdown & Info */}

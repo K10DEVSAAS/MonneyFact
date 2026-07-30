@@ -31,8 +31,11 @@ export const Topbar: React.FC<TopbarProps> = ({
       const saved = localStorage.getItem('monneyfact_subsidiaries_list');
       if (saved) {
         const all: Subsidiary[] = JSON.parse(saved);
-        // STRICT DATA ISOLATION FILTER BY ORGANIZATION ID
-        setSubsidiaries(all.filter((s) => s.organizationId === organization.id));
+        // STRICT DATA ISOLATION FILTER BY ORGANIZATION ID & EXCLUDE STALE MOCK IDS
+        const ownSubs = all.filter(
+          (s) => s.organizationId === organization.id && !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
+        );
+        setSubsidiaries(ownSubs);
       }
     } catch (e) {
       console.error(e);
