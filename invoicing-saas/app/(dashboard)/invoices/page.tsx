@@ -40,6 +40,7 @@ export default function InvoicesPage() {
     { id: 'overdue', label: 'En retard', count: invoices.filter((i) => i.status === 'overdue').length },
   ];
 
+  // REAL WORKING EXCEL & CSV EXPORT GENERATOR
   const handleExcelExport = () => {
     if (!isBusiness) {
       setLockModal({
@@ -49,7 +50,43 @@ export default function InvoicesPage() {
       });
       return;
     }
-    alert('Génération du fichier d\'exportation comptable Excel (.xlsx) en cours...');
+
+    if (invoices.length === 0) {
+      alert('Aucune facture disponible à exporter pour le moment. Veuillez créer votre première facture.');
+      return;
+    }
+
+    try {
+      // 1. Define Excel / CSV Headers
+      const headers = ['N° Facture', 'Client', 'Email Client', 'Date Émission', 'Échéance', 'Montant HT (FCFA)', 'TVA 18% (FCFA)', 'Total TTC (FCFA)', 'Statut'];
+
+      // 2. Generate CSV data rows formatted for Microsoft Excel with UTF-8 BOM
+      const rows = invoices.map((inv) => [
+        `"${inv.invoiceNumber}"`,
+        `"${(inv.clientName || '').replace(/"/g, '""')}"`,
+        `"${(inv.clientEmail || '').replace(/"/g, '""')}"`,
+        `"${inv.issueDate}"`,
+        `"${inv.dueDate}"`,
+        inv.subtotal || 0,
+        inv.taxAmount || 0,
+        inv.total || 0,
+        `"${(inv.status || '').toUpperCase()}"`,
+      ]);
+
+      const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `MonneyFact_Export_Comptable_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors de la génération du fichier Excel/CSV.');
+    }
   };
 
   const handleSmsReminder = (invoiceNumber: string, clientName: string) => {
