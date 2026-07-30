@@ -36,16 +36,19 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionRef, setTransactionRef] = useState('');
 
-  // 1. REAL-TIME PUBLIC SUPABASE & STORE QUERY: Bulletproof Type-Safe Fetch
+  // 1. DIAGNOSTIC REAL-TIME PUBLIC SUPABASE & STORE QUERY
   useEffect(() => {
     let isMounted = true;
 
     const fetchPublicInvoice = async () => {
       setLoading(true);
 
+      console.log('[DEBUG PUBLIC_PAYMENT STEP 1] Received URL Token:', token);
+
       try {
         // Safe check: Is token a valid UUID format?
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+        console.log('[DEBUG PUBLIC_PAYMENT STEP 2] Is Token UUID format?:', isUuid);
 
         let query = supabase.from('invoices').select(`
           *,
@@ -60,9 +63,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
 
         const { data: dbInv, error } = await query.maybeSingle();
 
-        if (error) {
-          console.warn('Supabase DB query error:', error);
-        }
+        console.log('[DEBUG PUBLIC_PAYMENT STEP 3] Supabase DB Query Result:', { dbInv, error });
 
         if (dbInv && isMounted) {
           const formattedItems = (dbInv.invoice_items || []).map((item: any) => ({
@@ -113,6 +114,8 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
             ],
           };
 
+          console.log('[DEBUG PUBLIC_PAYMENT STEP 4] Parsed Invoice Object:', parsedInvoice);
+
           setInvoice(parsedInvoice);
           if (parsedInvoice.status === 'paid') {
             setPaymentSuccess(true);
@@ -121,25 +124,24 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
           return;
         }
       } catch (err) {
-        console.warn('Supabase DB fetch fallback to store:', err);
+        console.warn('[DEBUG PUBLIC_PAYMENT WARN] Supabase DB fetch fallback to store:', err);
       }
 
       // B. Fallback Local Store Search
       if (isMounted) {
+        console.log('[DEBUG PUBLIC_PAYMENT STEP 5] Fallback to Local Store search. Available store invoices:', invoices.length);
         const storeInvoice = invoices.find(
           (inv) => inv.id === token || inv.invoiceNumber === token || inv.paymentToken === token
         );
 
         if (storeInvoice) {
+          console.log('[DEBUG PUBLIC_PAYMENT STEP 6] Found invoice in Store:', storeInvoice);
           setInvoice(storeInvoice);
           if (storeInvoice.status === 'paid') {
             setPaymentSuccess(true);
           }
-        } else if (invoices.length > 0) {
-          setInvoice(invoices[0]);
-          if (invoices[0].status === 'paid') {
-            setPaymentSuccess(true);
-          }
+        } else {
+          console.log('[DEBUG PUBLIC_PAYMENT STEP 7] Invoice NOT found in Store either!');
         }
         setLoading(false);
       }
@@ -183,7 +185,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
         await supabase
           .from('invoices')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
-          .eq('id', invoice.id);
+          .or(`id.eq.${invoice.id},payment_token.eq.${invoice.id}`);
         setTransactionRef(`CPAY-${Date.now()}`);
         setPaymentSuccess(true);
       } else {
@@ -193,7 +195,7 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
         await supabase
           .from('invoices')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
-          .eq('id', invoice.id);
+          .or(`id.eq.${invoice.id},payment_token.eq.${invoice.id}`);
         setTransactionRef(`CPAY-TX-${Date.now()}`);
         setPaymentSuccess(true);
       }
