@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -16,14 +16,30 @@ import {
   Receipt,
   CheckCircle2,
   RefreshCw,
+  Building2,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
 import { SignatureCanvas } from '@/components/invoices/SignatureCanvas';
+import { Subsidiary } from '@/lib/types/invoice';
 
 export default function NewInvoicePage() {
   const router = useRouter();
   const { clients, addInvoice, organization } = useAppStore();
+
+  const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
+  const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState('');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('monneyfact_subsidiaries_list');
+      if (saved) {
+        setSubsidiariesList(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientName, setClientName] = useState('');
@@ -105,9 +121,13 @@ export default function NewInvoicePage() {
     try {
       const generatedNumber = `FAC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
+      const chosenSub = subsidiariesList.find((s) => s.id === selectedSubsidiaryId);
+
       await addInvoice({
         invoiceNumber: generatedNumber,
         organizationId: organization.id,
+        subsidiaryId: selectedSubsidiaryId || undefined,
+        subsidiaryName: chosenSub?.name || undefined,
         clientId: selectedClientId || `cli-temp-${Date.now()}`,
         clientName,
         clientEmail: clientEmail || 'client@entreprise.ci',
@@ -140,7 +160,7 @@ export default function NewInvoicePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
+    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in text-slate-900">
       <div className="flex items-center justify-between">
         <Link
           href="/invoices"
@@ -163,9 +183,25 @@ export default function NewInvoicePage() {
               <p className="text-xs text-slate-500">Calcul automatique de la TVA 18% et devises en FCFA</p>
             </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-right">
-              <span className="text-[11px] font-bold text-slate-400 block">Émetteur</span>
-              <span className="text-xs font-extrabold text-slate-900">{organization.name}</span>
+            {/* Select Etablissement / Agence */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
+              {subsidiariesList.length > 0 ? (
+                <select
+                  value={selectedSubsidiaryId}
+                  onChange={(e) => setSelectedSubsidiaryId(e.target.value)}
+                  className="text-xs font-extrabold text-slate-900 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:border-orange-500"
+                >
+                  <option value="">{organization.name} (Siège Social)</option>
+                  {subsidiariesList.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} ({sub.city})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs font-extrabold text-slate-900">{organization.name}</span>
+              )}
             </div>
           </div>
 
@@ -239,7 +275,7 @@ export default function NewInvoicePage() {
                     type="number"
                     value={taxRate}
                     onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
-                    className="w-24 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold font-mono-numbers"
+                    className="w-24 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold font-mono"
                   />
                   <span className="text-xs text-slate-500 font-semibold">% (Standard 18% DGI CI)</span>
                 </div>
@@ -271,7 +307,7 @@ export default function NewInvoicePage() {
                       placeholder="Description de la prestation..."
                       value={item.description}
                       onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-orange-500 font-semibold"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-orange-500 font-semibold text-slate-900"
                     />
                   </div>
                   <div className="w-20">
@@ -280,7 +316,7 @@ export default function NewInvoicePage() {
                       min="1"
                       value={item.quantity}
                       onChange={(e) => handleItemChange(item.id, 'quantity', parseFloat(e.target.value) || 1)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-center font-bold"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-center font-bold text-slate-900"
                     />
                   </div>
                   <div className="w-36">
@@ -289,10 +325,10 @@ export default function NewInvoicePage() {
                       placeholder="Prix Unitaire FCFA"
                       value={item.unitPrice || ''}
                       onChange={(e) => handleItemChange(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold font-mono-numbers"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold font-mono text-slate-900"
                     />
                   </div>
-                  <div className="w-32 text-right font-mono-numbers font-extrabold text-xs text-slate-900">
+                  <div className="w-32 text-right font-mono font-extrabold text-xs text-slate-900">
                     {formatFCFA((item.quantity || 1) * (item.unitPrice || 0))}
                   </div>
                   <button
@@ -331,7 +367,7 @@ export default function NewInvoicePage() {
             </div>
 
             {/* Right: Totals summary */}
-            <div className="p-6 bg-slate-950 text-white rounded-2xl space-y-3 font-mono-numbers">
+            <div className="p-6 bg-slate-950 text-white rounded-2xl space-y-3 font-mono">
               <div className="flex justify-between text-xs text-zinc-400">
                 <span>Sous-total HT :</span>
                 <span>{formatFCFA(subtotal)}</span>

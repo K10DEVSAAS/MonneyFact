@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, Shield, Crown, Lock, CheckCircle2, Mail, Trash2, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, Shield, Crown, Lock, CheckCircle2, Mail, Trash2, RefreshCw, Copy, ExternalLink, Check } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { emailService } from '@/lib/services/emailService';
 
@@ -18,7 +18,15 @@ export default function TeamPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('Gestionnaire');
   const [sending, setSending] = useState(false);
-  const [addedMessage, setAddedMessage] = useState('');
+
+  // Success Invite Modal with Direct Link
+  const [inviteModal, setInviteModal] = useState<{ open: boolean; email: string; inviteUrl: string }>({
+    open: false,
+    email: '',
+    inviteUrl: '',
+  });
+
+  const [copied, setCopied] = useState(false);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +53,18 @@ export default function TeamPage() {
     ]);
 
     setSending(false);
+    setInviteModal({
+      open: true,
+      email: newEmail.trim(),
+      inviteUrl: emailResult.inviteUrl,
+    });
     setNewEmail('');
-    setAddedMessage(emailResult.message || `E-mail d'invitation avec jeton sécurisé 48h transmis à ${newEmail}`);
-    setTimeout(() => setAddedMessage(''), 5000);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(inviteModal.inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -96,13 +113,6 @@ export default function TeamPage() {
               <h3 className="text-sm font-extrabold uppercase tracking-wider">Inviter un nouveau membre ou comptable</h3>
             </div>
 
-            {addedMessage && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{addedMessage}</span>
-              </div>
-            )}
-
             <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row items-end gap-3 text-xs">
               <div className="flex-1 space-y-1 w-full">
                 <label className="font-bold text-slate-700">Adresse Email Professionnelle *</label>
@@ -139,7 +149,7 @@ export default function TeamPage() {
                 className="w-full sm:w-auto px-5 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md transition-all shrink-0 flex items-center justify-center gap-2"
               >
                 {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                <span>Envoyer l&apos;invitation par E-mail</span>
+                <span>Envoyer l&apos;invitation</span>
               </button>
             </form>
           </div>
@@ -195,6 +205,65 @@ export default function TeamPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS INVITE MODAL WITH DIRECT EMERGENCY LINK */}
+      {inviteModal.open && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="max-w-md w-full bg-zinc-900 rounded-3xl border border-zinc-800 p-6 space-y-5 text-zinc-100 shadow-2xl text-center">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white">Invitation Générée avec Succès !</h3>
+              <p className="text-xs text-zinc-400">
+                L&apos;invitation a été transmise à <strong className="text-white">{inviteModal.email}</strong>.
+              </p>
+            </div>
+
+            <div className="p-4 bg-zinc-950 rounded-2xl border border-zinc-800 text-left space-y-2">
+              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider block">
+                Lien d&apos;activation direct (Sécurisé 48h) :
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteModal.inviteUrl}
+                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-[11px] font-mono text-zinc-300 focus:outline-none"
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className="p-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-bold shrink-0 transition-colors"
+                  title="Copier le lien"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-800">
+              <a
+                href={inviteModal.inviteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-orange-400 font-bold hover:underline"
+              >
+                <span>Tester le lien maintenant</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setInviteModal({ open: false, email: '', inviteUrl: '' })}
+                className="px-5 py-2.5 bg-orange-600 text-white text-xs font-extrabold rounded-xl shadow-md"
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>

@@ -4,6 +4,32 @@ export type PaymentChannel = 'wave' | 'orange_money' | 'mtn_momo' | 'moov' | 'ca
 
 export type PlanType = 'Découverte' | 'Pro' | 'Business';
 
+export type SubsidiaryType =
+  | 'Siège Social'
+  | 'Agence Régionale'
+  | 'Boutique / Point de Vente'
+  | 'Filiale Autonome'
+  | 'Succursale';
+
+export interface Subsidiary {
+  id: string;
+  organizationId: string;
+  name: string;
+  type: SubsidiaryType;
+  city: string;
+  address: string;
+  phone: string;
+  email: string;
+  managerName: string;
+  rccmNumber?: string;
+  taxId?: string;
+  status: 'actif' | 'inactif';
+  totalInvoiced: number;
+  invoiceCount: number;
+  memberCount: number;
+  createdAt: string;
+}
+
 export interface InvoiceItem {
   id: string;
   description: string;
@@ -16,6 +42,8 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   organizationId: string;
+  subsidiaryId?: string;
+  subsidiaryName?: string;
   clientId: string;
   clientName: string;
   clientEmail: string;
@@ -40,6 +68,7 @@ export interface Invoice {
 export interface Client {
   id: string;
   organizationId: string;
+  subsidiaryId?: string;
   name: string;
   email: string;
   phone: string;

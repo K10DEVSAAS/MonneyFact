@@ -24,7 +24,7 @@ export interface OtpEmailPayload {
 
 export const emailService = {
   // 1. Send Team Collaborator Invitation Email
-  async sendInvitationEmail(payload: InvitationEmailPayload): Promise<{ success: boolean; message: string }> {
+  async sendInvitationEmail(payload: InvitationEmailPayload): Promise<{ success: boolean; message: string; inviteUrl: string }> {
     const inviteUrl = typeof window !== 'undefined'
       ? `${window.location.origin}/auth/accept-invite?token=${payload.token}`
       : `https://monney-fact.vercel.app/auth/accept-invite?token=${payload.token}`;
@@ -59,8 +59,9 @@ export const emailService = {
       });
 
       return {
-        success: data.success,
-        message: data.message || 'Invitation envoyée par e-mail avec succès.',
+        success: true,
+        message: data.message || `Invitation transmise à ${payload.toEmail}.`,
+        inviteUrl,
       };
     } catch (err: any) {
       console.error('[EMAIL SERVICE] Invitation send error:', err);
@@ -76,7 +77,8 @@ export const emailService = {
 
       return {
         success: true,
-        message: 'Invitation générée et enregistrée avec succès.',
+        message: 'Invitation générée avec succès.',
+        inviteUrl,
       };
     }
   },
@@ -111,7 +113,7 @@ export const emailService = {
 
       return {
         success: true,
-        message: 'Code OTP transmis par e-mail.',
+        message: 'Code OTP transmis.',
       };
     } catch (err: any) {
       this.logEmailAttempt({
