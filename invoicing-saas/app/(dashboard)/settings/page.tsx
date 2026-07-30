@@ -1,13 +1,18 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Save, Building, Phone, MapPin, FileCheck, Upload, Image as ImageIcon, CheckCircle2, Trash2, Smartphone, CreditCard, ShieldCheck } from 'lucide-react';
+import { Save, Building, Phone, MapPin, FileCheck, Upload, Image as ImageIcon, CheckCircle2, Trash2, Smartphone, CreditCard, ShieldCheck, Crown, Check } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { CINETPAY_DEFAULT_CONFIG } from '@/lib/services/cinetpayService';
+import { formatFCFA } from '@/lib/utils/formatters';
 
 export default function SettingsPage() {
   const { organization, updateOrganization } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [currentPlan, setCurrentPlan] = useState<'Gratuit' | 'Pro' | 'Business'>(
+    organization.plan || 'Pro'
+  );
 
   const [org, setOrg] = useState({
     name: organization.name,
@@ -47,6 +52,12 @@ export default function SettingsPage() {
     updateOrganization({ logoUrl: '' });
   };
 
+  const handlePlanSwitch = (newPlan: 'Gratuit' | 'Pro' | 'Business') => {
+    setCurrentPlan(newPlan);
+    updateOrganization({ plan: newPlan });
+    alert(`Votre abonnement a été mis à jour vers la formule "${newPlan}" !`);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateOrganization({
@@ -54,6 +65,7 @@ export default function SettingsPage() {
       address: org.address,
       phone: org.phone,
       taxId: org.taxId,
+      plan: currentPlan,
     });
 
     setSaved(true);
@@ -63,10 +75,104 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-fade-in">
       <div>
-        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Paramètres de l&apos;Entreprise</h2>
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Paramètres & Formule d&apos;Abonnement</h2>
         <p className="text-xs text-slate-500 mt-1">
-          Configurez les informations officielles, le numéro Mobile Money de virement direct et les clés d&apos;encaissement CinetPay.
+          Configurez votre formule d&apos;abonnement SaaS, vos informations officielles et votre numéro Mobile Money.
         </p>
+      </div>
+
+      {/* SUBSCRIPTION PLAN SELECTION SECTION */}
+      <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-xl space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold">
+              <Crown className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-orange-400">Formule Active :</span>
+              <h3 className="text-lg font-black text-white">{currentPlan}</h3>
+            </div>
+          </div>
+          <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-full">
+            {currentPlan === 'Business' ? '15 000 FCFA/mois' : currentPlan === 'Pro' ? '5 000 FCFA/mois' : '0 FCFA/mois'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Plan Gratuit */}
+          <div
+            onClick={() => handlePlanSwitch('Gratuit')}
+            className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
+              currentPlan === 'Gratuit'
+                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
+                : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+            }`}
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-extrabold text-white text-sm">Plan Gratuit</p>
+                <p className="text-orange-400 font-mono font-bold">0 FCFA / mois</p>
+              </div>
+              {currentPlan === 'Gratuit' && <Check className="w-5 h-5 text-emerald-400" />}
+            </div>
+            <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
+              <li>• Max 5 factures par mois</li>
+              <li>• Max 5 clients dans le répertoire</li>
+              <li>• Calcul automatique TVA 18%</li>
+              <li>• Export PDF standard</li>
+            </ul>
+          </div>
+
+          {/* Plan Pro */}
+          <div
+            onClick={() => handlePlanSwitch('Pro')}
+            className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
+              currentPlan === 'Pro'
+                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
+                : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+            }`}
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-extrabold text-white text-sm">Plan Pro ⚡</p>
+                <p className="text-orange-400 font-mono font-bold">5 000 FCFA / mois</p>
+              </div>
+              {currentPlan === 'Pro' && <Check className="w-5 h-5 text-emerald-400" />}
+            </div>
+            <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
+              <li>• Factures & Devis <strong>Illimités</strong></li>
+              <li>• Clients <strong>Illimités</strong></li>
+              <li>• Compte Contribuable (NCC)</li>
+              <li>• Suivi encaissements Wave / MoMo</li>
+              <li>• Support prioritaire 7j/7</li>
+            </ul>
+          </div>
+
+          {/* Plan Business */}
+          <div
+            onClick={() => handlePlanSwitch('Business')}
+            className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative ${
+              currentPlan === 'Business'
+                ? 'bg-orange-950/60 border-orange-500 ring-2 ring-orange-500/30'
+                : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+            }`}
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-extrabold text-white text-sm">Plan Business 🚀</p>
+                <p className="text-orange-400 font-mono font-bold">15 000 FCFA / mois</p>
+              </div>
+              {currentPlan === 'Business' && <Check className="w-5 h-5 text-emerald-400" />}
+            </div>
+            <ul className="text-[11px] text-zinc-400 space-y-1.5 pt-2 border-t border-zinc-800">
+              <li>• Tout le contenu du Plan Pro</li>
+              <li>• Multi-utilisateurs (Comptables)</li>
+              <li>• Multi-entreprises (Filiales)</li>
+              <li>• Relances SMS & Email automatiques</li>
+              <li>• Export comptable Excel / CSV</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div className="p-6 lg:p-8 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-8">
@@ -246,7 +352,7 @@ export default function SettingsPage() {
                     value={org.mobileMoneyPhone}
                     onChange={(e) => setOrg({ ...org, mobileMoneyPhone: e.target.value })}
                     placeholder="+225 07 08 09 10 11"
-                    className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-mono"
+                    className="w-full pl-10 pr-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-mono"
                   />
                 </div>
               </div>

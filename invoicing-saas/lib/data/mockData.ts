@@ -7,6 +7,7 @@ export const mockOrganization: Organization = {
   phone: '+225 07 00 00 00 00',
   logoUrl: '',
   taxId: 'NCC Non Renseigné',
+  plan: 'Pro',
   createdAt: new Date().toISOString(),
 };
 
