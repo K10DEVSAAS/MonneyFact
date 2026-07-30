@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Users, UserPlus, Shield, Crown, Lock, CheckCircle2, Mail, Trash2 } from 'lucide-react';
+import { Users, UserPlus, Shield, Crown, Lock, CheckCircle2, Mail, Trash2, RefreshCw } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
+import { emailService } from '@/lib/services/emailService';
 
 export default function TeamPage() {
   const { organization } = useAppStore();
@@ -16,19 +17,37 @@ export default function TeamPage() {
 
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('Gestionnaire');
-  const [addedMessage, setAddedMessage] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [addedMessage, setAddedMessage] = useState('');
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail.trim()) return;
 
+    setSending(true);
+
+    const token = `inv-${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 48 * 3600 * 1000).toLocaleString('fr-FR');
+
+    // 1. Dispatch Email via Centralized Email Service
+    const emailResult = await emailService.sendInvitationEmail({
+      toEmail: newEmail.trim(),
+      companyName: organization.name,
+      role: newRole,
+      token,
+      expiresAt,
+    });
+
+    // 2. Update local state
     setMembers([
       ...members,
-      { id: `m-${Date.now()}`, name: newEmail.split('@')[0], email: newEmail, role: newRole, status: 'Actif' },
+      { id: `m-${Date.now()}`, name: newEmail.split('@')[0], email: newEmail.trim(), role: newRole, status: 'Invitation Envoyée' },
     ]);
+
+    setSending(false);
     setNewEmail('');
-    setAddedMessage(true);
-    setTimeout(() => setAddedMessage(false), 3000);
+    setAddedMessage(emailResult.message || `E-mail d'invitation avec jeton sécurisé 48h transmis à ${newEmail}`);
+    setTimeout(() => setAddedMessage(''), 5000);
   };
 
   return (
@@ -36,7 +55,7 @@ export default function TeamPage() {
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestion de l&apos;Équipe & Accès Comptables</h2>
         <p className="text-xs text-slate-500 mt-1">
-          Invitez des collaborateurs, gestionnaires et comptables externes avec des rôles sur mesure.
+          Invitez des collaborateurs, gestionnaires et comptables externes avec envoi d&apos;e-mails automatisé.
         </p>
       </div>
 
@@ -79,8 +98,8 @@ export default function TeamPage() {
 
             {addedMessage && (
               <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Invitation envoyée avec succès par e-mail !</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{addedMessage}</span>
               </div>
             )}
 
@@ -116,17 +135,18 @@ export default function TeamPage() {
 
               <button
                 type="submit"
-                className="w-full sm:w-auto px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shadow-md transition-all shrink-0 flex items-center justify-center gap-2"
+                disabled={sending}
+                className="w-full sm:w-auto px-5 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md transition-all shrink-0 flex items-center justify-center gap-2"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>Envoyer l&apos;invitation</span>
+                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                <span>Envoyer l&apos;invitation par E-mail</span>
               </button>
             </form>
           </div>
 
           {/* Members Table */}
           <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">Membres Actifs ({members.length})</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">Membres & Invitations Envoyées ({members.length})</h3>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
@@ -135,7 +155,7 @@ export default function TeamPage() {
                     <th className="py-3 px-4 rounded-l-xl">Membre</th>
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4 text-center">Rôle</th>
-                    <th className="py-3 px-4 text-center">Statut</th>
+                    <th className="py-3 px-4 text-center">Statut E-mail</th>
                     <th className="py-3 px-4 text-right rounded-r-xl">Action</th>
                   </tr>
                 </thead>
@@ -150,7 +170,13 @@ export default function TeamPage() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            m.status.includes('Envoyée')
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
                           {m.status}
                         </span>
                       </td>
