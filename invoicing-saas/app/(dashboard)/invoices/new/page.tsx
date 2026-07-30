@@ -15,6 +15,7 @@ import {
   Percent,
   Receipt,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
@@ -27,6 +28,7 @@ export default function NewInvoicePage() {
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const dueDateStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -86,7 +88,8 @@ export default function NewInvoicePage() {
   const taxAmount = Math.round((subtotal * taxRate) / 100);
   const total = subtotal + taxAmount;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ASYNC SUBMIT: AWAIT SUPABASE INVOICE INSERT BEFORE NAVIGATING TO PREVENT REQUEST CANCELLATION
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientName.trim()) {
       alert('Veuillez sélectionner ou saisir le nom du client.');
@@ -97,34 +100,43 @@ export default function NewInvoicePage() {
       return;
     }
 
-    const generatedNumber = `FAC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    setIsSubmitting(true);
 
-    addInvoice({
-      invoiceNumber: generatedNumber,
-      organizationId: organization.id,
-      clientId: selectedClientId || `cli-temp-${Date.now()}`,
-      clientName,
-      clientEmail: clientEmail || 'client@entreprise.ci',
-      status: 'sent',
-      issueDate,
-      dueDate,
-      subtotal,
-      taxRate,
-      taxAmount,
-      total,
-      notes,
-      observations,
-      signatureUrl,
-      items: items.map((item) => ({
-        id: item.id,
-        description: item.description,
-        quantity: Number(item.quantity) || 1,
-        unitPrice: Number(item.unitPrice) || 0,
-        lineTotal: (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0),
-      })),
-    });
+    try {
+      const generatedNumber = `FAC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    router.push('/invoices');
+      await addInvoice({
+        invoiceNumber: generatedNumber,
+        organizationId: organization.id,
+        clientId: selectedClientId || `cli-temp-${Date.now()}`,
+        clientName,
+        clientEmail: clientEmail || 'client@entreprise.ci',
+        status: 'sent',
+        issueDate,
+        dueDate,
+        subtotal,
+        taxRate,
+        taxAmount,
+        total,
+        notes,
+        observations,
+        signatureUrl,
+        items: items.map((item) => ({
+          id: item.id,
+          description: item.description,
+          quantity: Number(item.quantity) || 1,
+          unitPrice: Number(item.unitPrice) || 0,
+          lineTotal: (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0),
+        })),
+      });
+
+      router.push('/invoices');
+    } catch (err) {
+      console.error(err);
+      alert('Une erreur est survenue lors de l\'enregistrement de la facture.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -345,10 +357,20 @@ export default function NewInvoicePage() {
             </Link>
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 disabled:opacity-50 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Générer et valider la facture</span>
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Enregistrement en cours...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Générer et valider la facture</span>
+                </>
+              )}
             </button>
           </div>
         </div>
