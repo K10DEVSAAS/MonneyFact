@@ -22,6 +22,7 @@ import {
   Building,
   ArrowRight,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { Subsidiary, SubsidiaryType } from '@/lib/types/invoice';
@@ -56,6 +57,19 @@ export default function SubsidiariesPage() {
       localStorage.setItem('monneyfact_subsidiaries_list', JSON.stringify(list));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Delete Sub-Company Feature
+  const handleDeleteSubsidiary = (id: string, name: string) => {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer la sous-entreprise "${name}" ? Cette action retirera cet établissement.`)) {
+      const updated = subsidiaries.filter((s) => s.id !== id);
+      saveSubsidiaries(updated);
+
+      // If active context was this subsidiary, reset to global / main company
+      if (activeSubsidiaryId === id) {
+        setActiveSubsidiaryId('global');
+      }
     }
   };
 
@@ -181,7 +195,7 @@ export default function SubsidiariesPage() {
                 <p className="text-[11px] text-slate-500">
                   {subsidiaries.length === 0
                     ? 'Votre compte fonctionne actuellement en établissement unique.'
-                    : 'Sélectionnez une agence pour basculer la facturation.'}
+                    : 'Sélectionnez une agence pour basculer la facturation ou supprimez-la si nécessaire.'}
                 </p>
               </div>
             </div>
@@ -250,6 +264,15 @@ export default function SubsidiariesPage() {
                           </span>
                         </div>
                       </div>
+
+                      {/* Delete Sub-Company Button */}
+                      <button
+                        onClick={() => handleDeleteSubsidiary(sub.id, sub.name)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Supprimer la sous-entreprise"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
                     <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
