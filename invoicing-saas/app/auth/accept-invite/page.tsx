@@ -12,17 +12,35 @@ function AcceptInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams?.get('token') || '';
-  const { registerClient } = useAuth();
+  const { loginAsCollaborator } = useAuth();
   const { organization } = useAppStore();
 
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [timeMinutes, setTimeMinutes] = useState(30);
   const [accepted, setAccepted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleAccept = () => {
+  const isBasique = organization.plan === 'Basique';
+
+  const handleAccept = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (isBasique) {
+      setErrorMessage("Cette invitation n'est plus valide car l'entreprise est passée en formule 1 000 FCFA/mois (la collaboration est réservée au Plan Pro 5 000 FCFA/mois).");
+      return;
+    }
+
+    if (!fullName.trim() || !email.trim()) {
+      setErrorMessage('Veuillez renseigner votre nom complet et votre adresse e-mail.');
+      return;
+    }
+
     setAccepted(true);
     setTimeout(() => {
-      registerClient(`${organization.name} Member`, 'collaborateur@entreprise.ci', organization.plan || 'Pro');
-      router.push('/dashboard');
-    }, 1500);
+      loginAsCollaborator(fullName.trim(), email.trim(), organization.name, organization.plan || 'Pro', timeMinutes);
+    }, 1200);
   };
 
   return (
@@ -36,9 +54,9 @@ function AcceptInviteContent() {
           <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-white">Invitation Acceptée ! 🎉</h3>
+          <h3 className="text-xl font-bold text-white">Session Collaborateur Activée ! 🎉</h3>
           <p className="text-xs text-zinc-300">
-            Vous avez rejoint l&apos;espace entreprise de <strong className="text-white">{organization.name}</strong>. Redirection vers votre tableau de bord...
+            Bienvenue <strong className="text-white">{fullName}</strong> ! Vous êtes connecté sous l&apos;entreprise <strong className="text-orange-400">{organization.name}</strong> pour une durée de <strong className="text-emerald-400">{timeMinutes} minutes</strong>. Redirection...
           </p>
         </div>
       ) : (
@@ -48,34 +66,65 @@ function AcceptInviteContent() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white tracking-tight">Invitation à Rejoindre l&apos;Équipe</h2>
+            <h2 className="text-xl font-bold text-white tracking-tight">Accès Collaborateur Temporaire</h2>
             <p className="text-xs text-zinc-400">
-              Vous avez été invité à rejoindre le compte entreprise de <strong className="text-orange-400">{organization.name}</strong> sur MonneyFact.
+              Invitation émise par l&apos;entreprise <strong className="text-orange-400">{organization.name}</strong>.
             </p>
           </div>
 
-          <div className="p-4 bg-zinc-950 rounded-2xl border border-zinc-800 text-left space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400 font-bold">Entreprise :</span>
-              <span className="text-white font-extrabold">{organization.name}</span>
+          {errorMessage && (
+            <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-semibold">
+              {errorMessage}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400 font-bold">Formule :</span>
-              <span className="text-orange-400 font-mono font-bold">Plan {organization.plan || 'Pro'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400 font-bold">Jeton Invitation :</span>
-              <span className="text-zinc-500 font-mono text-[11px] truncate max-w-[150px]">{token || 'INV-VALID-48H'}</span>
-            </div>
-          </div>
+          )}
 
-          <button
-            onClick={handleAccept}
-            className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
-          >
-            <span>Accepter & Rejoindre l&apos;Entreprise</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <form onSubmit={handleAccept} className="space-y-4 text-xs text-left">
+            <div className="space-y-1">
+              <label className="font-bold text-zinc-300">Votre Nom Complet *</label>
+              <input
+                type="text"
+                required
+                placeholder="ex: Yao Kouassi"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-medium focus:outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-bold text-zinc-300">Votre Adresse Email Professionnelle *</label>
+              <input
+                type="email"
+                required
+                placeholder="collaborateur@entreprise.ci"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-medium focus:outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-bold text-zinc-300">Temps Imparti pour la Session</label>
+              <select
+                value={timeMinutes}
+                onChange={(e) => setTimeMinutes(Number(e.target.value))}
+                className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-bold focus:outline-none focus:border-orange-500"
+              >
+                <option value={15}>15 Minutes</option>
+                <option value={30}>30 Minutes (Standard)</option>
+                <option value={60}>1 Heure</option>
+                <option value={120}>2 Heures</option>
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2 mt-4"
+            >
+              <span>Valider Mes Informations & Ouvrir la Session</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
         </div>
       )}
     </div>

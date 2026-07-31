@@ -15,6 +15,10 @@ export interface UserSession {
   companyName?: string;
   plan?: PlanType;
   avatarUrl?: string;
+  isCollaborator?: boolean;
+  hostCompanyName?: string;
+  collaboratorTimeMinutes?: number;
+  sessionEndTime?: number;
 }
 
 interface AuthContextType {
@@ -24,6 +28,7 @@ interface AuthContextType {
   isLoadingSession: boolean;
   loginAsClient: (email?: string) => { success: boolean; error?: string };
   loginAsAdmin: () => void;
+  loginAsCollaborator: (name: string, email: string, hostCompanyName: string, plan: PlanType, timeMinutes?: number) => void;
   registerClient: (companyName: string, email: string, plan: PlanType) => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
@@ -236,6 +241,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push('/admin');
   };
 
+  const loginAsCollaborator = (
+    name: string,
+    email: string,
+    hostCompanyName: string,
+    plan: PlanType,
+    timeMinutes: number = 30
+  ) => {
+    const sessionEndTime = Date.now() + timeMinutes * 60 * 1000;
+    const colUser: UserSession = {
+      id: `collab-${Date.now()}`,
+      name,
+      email,
+      role: 'client',
+      companyName: hostCompanyName,
+      hostCompanyName,
+      plan,
+      isCollaborator: true,
+      collaboratorTimeMinutes: timeMinutes,
+      sessionEndTime,
+    };
+
+    setUser(colUser);
+    setIsLoadingSession(false);
+    localStorage.setItem('monneyfact_active_user', JSON.stringify(colUser));
+    router.push('/dashboard');
+  };
+
   const registerClient = (companyName: string, email: string, plan: PlanType) => {
     // If re-registering after deletion, remove from deleted list
     try {
@@ -325,6 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoadingSession,
         loginAsClient,
         loginAsAdmin,
+        loginAsCollaborator,
         registerClient,
         loginWithGoogle,
         logout,

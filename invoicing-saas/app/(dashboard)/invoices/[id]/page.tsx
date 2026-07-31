@@ -175,7 +175,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200/80">
           <div className="space-y-1 text-xs">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Émetteur</span>
-            <p className="font-extrabold text-slate-900 text-sm">{organization.name}</p>
+            <p className="font-extrabold text-slate-900 text-sm">{invoice.subsidiaryName || organization.name}</p>
+            {invoice.subsidiaryName && (
+              <p className="text-[11px] text-orange-600 font-bold">Établissement / Filiale de : {organization.name}</p>
+            )}
             <p className="text-slate-600">{organization.address || 'Abidjan, Côte d\'Ivoire'}</p>
             <p className="text-slate-600">{organization.phone || '+225 07 00 00 00 00'}</p>
           </div>
@@ -211,11 +214,29 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </table>
         </div>
 
-        {/* Totals Breakdown */}
+        {/* Totals Breakdown & Signature / Observations */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4 border-t border-slate-200">
-          <div className="space-y-2 text-xs text-slate-500 max-w-sm">
-            <p className="font-bold text-slate-700">Conditions de paiement & Mentions :</p>
-            <p>Paiement exigible à réception. Mode de règlement accepté : Wave, Orange Money, MTN MoMo, Espèces, Virement.</p>
+          <div className="space-y-4 text-xs text-slate-600 max-w-sm">
+            {/* Complementary Elements & Observations */}
+            <div className="space-y-1">
+              <p className="font-bold text-slate-900 uppercase text-[11px] tracking-wider">Éléments Complémentaires & Observations :</p>
+              <p className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-700">
+                {invoice.observations || invoice.notes || 'Règlement exigible selon les modalités agreed. Prestation réalisée conformément à la commande.'}
+              </p>
+            </div>
+
+            {/* Signature Block */}
+            <div className="pt-2">
+              <p className="font-bold text-slate-900 uppercase text-[11px] tracking-wider mb-1">Signature Numérique & Cachet :</p>
+              {invoice.signatureUrl ? (
+                /* eslint-disable-next-html-element-suppression */
+                <img src={invoice.signatureUrl} alt="Signature" className="h-14 object-contain max-w-[180px] border border-slate-200 rounded-lg p-1" />
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-[11px] text-slate-500 font-mono italic">
+                  Signature Électronique Certifiée • {invoice.subsidiaryName || organization.name}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="w-full sm:w-72 p-4 bg-slate-900 text-white rounded-2xl space-y-2 text-xs">
@@ -234,6 +255,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <span className="font-mono font-black text-orange-400">{formatFCFA(invoice.total)}</span>
             </div>
           </div>
+        </div>
+
+        {/* Official MonneyFact Footer */}
+        <div className="pt-6 border-t border-slate-200 text-center text-xs text-slate-400">
+          <p className="font-semibold">
+            Facture officielle générée via <strong className="text-orange-600">MonneyFact</strong> — La solution SaaS n°1 de facturation en Côte d&apos;Ivoire (www.monneyfact.ci)
+          </p>
         </div>
 
         {/* Public Checkout Link Box */}
