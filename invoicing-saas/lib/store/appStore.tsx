@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Invoice, Client, Organization, DashboardStats, AppNotification, PlanType } from '../types/invoice';
-import { mockInvoices, mockClients, mockOrganization } from '../data/mockData';
+import { mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
 import { supabase } from '../supabase/client';
 import { PLAN_PRICES } from '../services/subscriptionService';
@@ -35,6 +35,7 @@ interface AppStoreType {
   deleteClient: (id: string) => void;
   updateOrganization: (orgData: Partial<Organization>) => void;
   initializeZeroAccount: (companyName: string, email: string, plan?: PlanType) => void;
+  purgeAllDatabaseRecords: () => void;
   markCompanyNotifAsRead: (id: string) => void;
   markAllCompanyNotifsAsRead: () => void;
   deleteCompanyNotif: (id: string) => void;
@@ -49,55 +50,69 @@ const AppStoreContext = createContext<AppStoreType | undefined>(undefined);
 
 export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [organization, setOrganization] = useState<Organization>(mockOrganization);
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [activeSubsidiaryId, setActiveSubsidiaryId] = useState<string>('global');
 
   const [companyNotifications, setCompanyNotifications] = useState<AppNotification[]>([]);
   const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>([]);
 
-  // Restore state from localStorage & Supabase DB on mount
+  // Restore & sync state isolated per logged-in user email
   useEffect(() => {
     let isSubscribed = true;
 
     const loadData = async () => {
       try {
-        const savedOrg = localStorage.getItem('monneyfact_org_data');
-        let currentOrg = mockOrganization;
-        if (savedOrg) {
-          currentOrg = JSON.parse(savedOrg);
-        }
-
-        // DYNAMIC SYNC WITH LOGGED-IN USER PLAN & COMPANY NAME
         const savedUser = localStorage.getItem('monneyfact_active_user');
+        let userEmail = '';
+        let currentOrg = mockOrganization;
+
         if (savedUser) {
           const u = JSON.parse(savedUser);
-          if (u.plan) {
-            currentOrg = {
-              ...currentOrg,
-              name: u.companyName || u.name || currentOrg.name,
-              email: u.email || currentOrg.email,
-              plan: u.plan,
-            };
+          userEmail = u.email ? u.email.toLowerCase() : '';
+          currentOrg = {
+            ...mockOrganization,
+            id: u.id || mockOrganization.id,
+            name: u.companyName || u.name || mockOrganization.name,
+            email: u.email || mockOrganization.email,
+            plan: u.plan || 'Pro',
+          };
+        }
+
+        // Try restoring user-specific organization data
+        if (userEmail) {
+          const userOrgKey = `monneyfact_org_${userEmail}`;
+          const savedOrg = localStorage.getItem(userOrgKey);
+          if (savedOrg) {
+            currentOrg = JSON.parse(savedOrg);
           }
         }
 
         if (isSubscribed) setOrganization(currentOrg);
 
-        const savedInvoices = localStorage.getItem('monneyfact_invoices');
-        if (savedInvoices) {
-          const parsed = JSON.parse(savedInvoices);
-          if (isSubscribed) setInvoices(parsed);
+        // Load isolated user invoices
+        const invoiceKey = userEmail ? `monneyfact_invoices_${userEmail}` : 'monneyfact_invoices_guest';
+        const savedInvoices = localStorage.getItem(invoiceKey);
+        if (savedInvoices && isSubscribed) {
+          setInvoices(JSON.parse(savedInvoices));
+        } else if (isSubscribed) {
+          setInvoices([]);
         }
 
-        const savedClients = localStorage.getItem('monneyfact_clients');
-        if (savedClients && isSubscribed) setClients(JSON.parse(savedClients));
+        // Load isolated user clients
+        const clientKey = userEmail ? `monneyfact_clients_${userEmail}` : 'monneyfact_clients_guest';
+        const savedClients = localStorage.getItem(clientKey);
+        if (savedClients && isSubscribed) {
+          setClients(JSON.parse(savedClients));
+        } else if (isSubscribed) {
+          setClients([]);
+        }
 
         const savedSubId = localStorage.getItem('monneyfact_active_sub_id');
         if (savedSubId && isSubscribed) setActiveSubsidiaryId(savedSubId);
 
-        const orgNotifKey = `monneyfact_notifs_${currentOrg.id}`;
+        const orgNotifKey = `monneyfact_notifs_${userEmail || currentOrg.id}`;
         const savedCompanyNotifs = localStorage.getItem(orgNotifKey);
         if (savedCompanyNotifs && isSubscribed) {
           setCompanyNotifications(JSON.parse(savedCompanyNotifs));
@@ -133,10 +148,35 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const getUserEmail = () => {
+    return organization.email ? organization.email.toLowerCase() : 'guest';
+  };
+
+  const saveInvoicesForUser = (invList: Invoice[]) => {
+    setInvoices(invList);
+    try {
+      const email = getUserEmail();
+      localStorage.setItem(`monneyfact_invoices_${email}`, JSON.stringify(invList));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveClientsForUser = (cliList: Client[]) => {
+    setClients(cliList);
+    try {
+      const email = getUserEmail();
+      localStorage.setItem(`monneyfact_clients_${email}`, JSON.stringify(cliList));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const saveCompanyNotifs = (list: AppNotification[], orgId: string = organization.id) => {
     setCompanyNotifications(list);
     try {
-      localStorage.setItem(`monneyfact_notifs_${orgId}`, JSON.stringify(list));
+      const email = getUserEmail();
+      localStorage.setItem(`monneyfact_notifs_${email}`, JSON.stringify(list));
     } catch (e) {
       console.error(e);
     }
@@ -151,7 +191,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const addCompanyNotif = (title: string, message: string, type: AppNotification['type'] = 'info', orgId: string = organization.id) => {
+  const addCompanyNotif = (title: string, message: string, type: AppNotification['type'] = 'info') => {
     const notif: AppNotification = {
       id: `cnotif-${Date.now()}`,
       title,
@@ -160,7 +200,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       read: false,
       createdAt: new Date().toISOString(),
     };
-    saveCompanyNotifs([notif, ...companyNotifications], orgId);
+    saveCompanyNotifs([notif, ...companyNotifications]);
   };
 
   const addAdminNotif = (title: string, message: string, type: AppNotification['type'] = 'info') => {
@@ -211,12 +251,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updated = [created, ...invoices];
-    setInvoices(updated);
-    try {
-      localStorage.setItem('monneyfact_invoices', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
+    saveInvoicesForUser(updated);
 
     try {
       await fetch('/api/invoices/create', {
@@ -242,12 +277,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateInvoiceStatus = async (id: string, status: Invoice['status']) => {
     const target = invoices.find((i) => i.id === id);
     const updated = invoices.map((inv) => (inv.id === id ? { ...inv, status } : inv));
-    setInvoices(updated);
-    try {
-      localStorage.setItem('monneyfact_invoices', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
+    saveInvoicesForUser(updated);
 
     try {
       await supabase
@@ -270,12 +300,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const deleteInvoice = async (id: string) => {
     const target = invoices.find((i) => i.id === id);
     const updated = invoices.filter((inv) => inv.id !== id);
-    setInvoices(updated);
-    try {
-      localStorage.setItem('monneyfact_invoices', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
+    saveInvoicesForUser(updated);
 
     try {
       await supabase.from('invoices').delete().or(`id.eq.${id},payment_token.eq.${id}`);
@@ -297,24 +322,14 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       unpaidBalance: 0,
     };
     const updated = [created, ...clients];
-    setClients(updated);
-    try {
-      localStorage.setItem('monneyfact_clients', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
+    saveClientsForUser(updated);
     addCompanyNotif('Nouveau Client Enregistré', `Le client "${created.name}" a été ajouté à votre répertoire.`, 'success');
   };
 
   const deleteClient = (id: string) => {
     const target = clients.find((c) => c.id === id);
     const updated = clients.filter((c) => c.id !== id);
-    setClients(updated);
-    try {
-      localStorage.setItem('monneyfact_clients', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
+    saveClientsForUser(updated);
     if (target) {
       addCompanyNotif('Client Supprimé', `Le client "${target.name}" a été retiré.`, 'warning');
     }
@@ -324,7 +339,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setOrganization((prev) => {
       const updated = { ...prev, ...orgData };
       try {
-        localStorage.setItem('monneyfact_org_data', JSON.stringify(updated));
+        const email = updated.email ? updated.email.toLowerCase() : 'guest';
+        localStorage.setItem(`monneyfact_org_${email}`, JSON.stringify(updated));
       } catch (e) {
         console.error(e);
       }
@@ -338,14 +354,15 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     email: string,
     plan: PlanType = 'Pro'
   ) => {
-    const monthlySubscription = PLAN_PRICES[plan] || 5000;
+    const monthlySubscription = PLAN_PRICES[plan] || (plan === 'Pro' ? 5000 : 1000);
     const newOrgId = getValidUuid();
     const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+    const cleanEmail = email.toLowerCase().trim();
 
     const newOrg: Organization = {
       id: newOrgId,
       name: companyName,
-      email,
+      email: cleanEmail,
       address: 'Abidjan, Côte d\'Ivoire',
       phone: '+225 07 00 00 00 00',
       logoUrl: '',
@@ -364,7 +381,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: `comp-${Date.now()}`,
       name: companyName,
       ownerName: companyName,
-      ownerEmail: email,
+      ownerEmail: cleanEmail,
       city: 'Abidjan',
       plan: plan as any,
       status: 'active',
@@ -376,7 +393,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const savedCompList = localStorage.getItem('monneyfact_companies_list');
     let currentCompanies: RegisteredCompany[] = savedCompList ? JSON.parse(savedCompList) : registeredCompanies;
 
-    if (!currentCompanies.some((c) => c.ownerEmail === email || c.name === companyName)) {
+    if (!currentCompanies.some((c) => c.ownerEmail?.toLowerCase() === cleanEmail || c.name === companyName)) {
       currentCompanies = [newCompany, ...currentCompanies];
     }
 
@@ -385,7 +402,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const welcomeNotif: AppNotification = {
       id: `cnotif-${Date.now()}`,
       title: 'Bienvenue sur MonneyFact !',
-      message: `Votre compte entreprise "${companyName}" (Formule ${plan}) est prêt et initialisé à 0.`,
+      message: `Votre compte entreprise "${companyName}" (Formule ${plan} - ${monthlySubscription.toLocaleString()} FCFA/m) est prêt et initialisé à 0.`,
       type: 'success',
       read: false,
       createdAt: new Date().toISOString(),
@@ -395,10 +412,12 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCompanyNotifications(newCompanyNotifs);
 
     try {
-      localStorage.setItem('monneyfact_org_data', JSON.stringify(newOrg));
-      localStorage.setItem('monneyfact_invoices', JSON.stringify([]));
-      localStorage.setItem('monneyfact_clients', JSON.stringify([]));
-      localStorage.setItem(`monneyfact_notifs_${newOrgId}`, JSON.stringify(newCompanyNotifs));
+      localStorage.setItem(`monneyfact_org_${cleanEmail}`, JSON.stringify(newOrg));
+      localStorage.setItem(`monneyfact_invoices_${cleanEmail}`, JSON.stringify([]));
+      localStorage.setItem(`monneyfact_clients_${cleanEmail}`, JSON.stringify([]));
+      localStorage.setItem(`monneyfact_subsidiaries_${cleanEmail}`, JSON.stringify([]));
+      localStorage.setItem(`monneyfact_team_${cleanEmail}`, JSON.stringify([]));
+      localStorage.setItem(`monneyfact_notifs_${cleanEmail}`, JSON.stringify(newCompanyNotifs));
       localStorage.setItem('monneyfact_companies_list', JSON.stringify(currentCompanies));
     } catch (e) {
       console.error(e);
@@ -406,9 +425,23 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     addAdminNotif(
       'Nouvelle Entreprise Inscrite 🚀',
-      `L'entreprise "${companyName}" (${email}) vient de s'inscrire sur la formule ${plan} (${monthlySubscription.toLocaleString()} FCFA/m).`,
+      `L'entreprise "${companyName}" (${cleanEmail}) vient de s'inscrire sur la formule ${plan} (${monthlySubscription.toLocaleString()} FCFA/m).`,
       'success'
     );
+  };
+
+  const purgeAllDatabaseRecords = () => {
+    setInvoices([]);
+    setClients([]);
+    setCompanyNotifications([]);
+    try {
+      const email = getUserEmail();
+      localStorage.removeItem(`monneyfact_invoices_${email}`);
+      localStorage.removeItem(`monneyfact_clients_${email}`);
+      localStorage.removeItem(`monneyfact_notifs_${email}`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const markCompanyNotifAsRead = (id: string) => {
@@ -458,6 +491,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deleteClient,
         updateOrganization,
         initializeZeroAccount,
+        purgeAllDatabaseRecords,
         markCompanyNotifAsRead,
         markAllCompanyNotifsAsRead,
         deleteCompanyNotif,
@@ -480,3 +514,4 @@ export const useAppStore = () => {
   }
   return context;
 };
+

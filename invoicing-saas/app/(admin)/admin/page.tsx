@@ -159,11 +159,25 @@ export default function AdminCockpitPage() {
   const activeCount = displayList.filter((c) => c.status === 'active').length;
   const expiringSoonCount = displayList.filter((c) => c.daysRemaining > 0 && c.daysRemaining <= 5).length;
 
-  const handleDeleteCompany = async (compId: string, compName: string) => {
+  const handleDeleteCompany = async (compId: string, compName: string, ownerEmail?: string) => {
     if (confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ? Cette action effacera complètement le compte du système.`)) {
       const updatedCompanies = displayList.filter((c) => c.id !== compId && c.name !== compName);
       setLiveCompanies(updatedCompanies);
       localStorage.setItem('monneyfact_companies_list', JSON.stringify(updatedCompanies));
+
+      // Record owner email in deleted companies list so auth rejects future logins
+      if (ownerEmail) {
+        try {
+          const deletedStr = localStorage.getItem('monneyfact_deleted_companies');
+          const deletedEmails: string[] = deletedStr ? JSON.parse(deletedStr) : [];
+          if (!deletedEmails.includes(ownerEmail.toLowerCase())) {
+            deletedEmails.push(ownerEmail.toLowerCase());
+            localStorage.setItem('monneyfact_deleted_companies', JSON.stringify(deletedEmails));
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
       try {
         await supabase.from('organizations').delete().or(`id.eq.${compId},name.eq.${compName}`);
@@ -185,8 +199,21 @@ export default function AdminCockpitPage() {
       setAuditLogs(updatedLogs);
       localStorage.setItem('monneyfact_audit_logs', JSON.stringify(updatedLogs));
 
-      alert(`Le compte entreprise "${compName}" a été supprimé avec succès.`);
+      alert(`Le compte entreprise "${compName}" a été supprimé avec succès. Toute tentative de connexion avec ses identifiants sera dorénavant rejetée.`);
     }
+  };
+
+  const handleClearAuditLogs = () => {
+    if (confirm("Êtes-vous sûr de vouloir SUPPRIMER L'HISTORIQUE COMPLET de vos actions d'administration ?")) {
+      setAuditLogs([]);
+      localStorage.removeItem('monneyfact_audit_logs');
+    }
+  };
+
+  const handleDeleteSingleLog = (logId: string) => {
+    const updated = auditLogs.filter((l) => l.id !== logId);
+    setAuditLogs(updated);
+    localStorage.setItem('monneyfact_audit_logs', JSON.stringify(updated));
   };
 
   const handleConfirmAction = () => {
@@ -436,7 +463,7 @@ export default function AdminCockpitPage() {
 
                         {/* Super Admin Delete Button */}
                         <button
-                          onClick={() => handleDeleteCompany(comp.id, comp.name)}
+                          onClick={() => handleDeleteCompany(comp.id, comp.name, comp.ownerEmail)}
                           className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                           title="Supprimer définitivement le compte entreprise"
                         >
@@ -450,6 +477,40 @@ export default function AdminCockpitPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Super Admin Revenue Evolution Visual Section */}
+      <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-base font-bold text-white">Évolution du Chiffre d&apos;Affaires des Abonnements (1 000 FCFA & 5 000 FCFA)</h3>
+          </div>
+          <span className="text-xs font-mono font-bold text-emerald-400 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+            Revenu Mensuel Total : {formatFCFA(totalMRR)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 space-y-1">
+            <span className="text-zinc-400 font-medium">Abonnements Mode 5 000 FCFA</span>
+            <p className="text-lg font-extrabold font-mono text-white">
+              {displayList.filter((c) => c.plan === 'Pro').length} entreprise(s) ({formatFCFA(displayList.filter((c) => c.plan === 'Pro').length * 5000)})
+            </p>
+          </div>
+          <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 space-y-1">
+            <span className="text-zinc-400 font-medium">Abonnements Mode 1 000 FCFA</span>
+            <p className="text-lg font-extrabold font-mono text-white">
+              {displayList.filter((c) => c.plan === 'Basique').length} entreprise(s) ({formatFCFA(displayList.filter((c) => c.plan === 'Basique').length * 1000)})
+            </p>
+          </div>
+          <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 space-y-1">
+            <span className="text-zinc-400 font-medium">Projection Annuelle</span>
+            <p className="text-lg font-extrabold font-mono text-emerald-400">
+              {formatFCFA(totalMRR * 12)}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Simulated Payments Log Table */}
@@ -480,12 +541,21 @@ export default function AdminCockpitPage() {
         </div>
       )}
 
-      {/* Admin Audit Logs Table */}
+      {/* Admin Audit Logs Table with Delete Capabilities */}
       {auditLogs.length > 0 && (
         <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 space-y-4">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-orange-500" />
-            <h3 className="text-base font-bold text-white">Journal d&apos;Audit des Actions Administrateur</h3>
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-orange-500" />
+              <h3 className="text-base font-bold text-white">Journal d&apos;Audit des Actions Administrateur</h3>
+            </div>
+            <button
+              onClick={handleClearAuditLogs}
+              className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold rounded-xl border border-rose-500/30 flex items-center gap-1.5 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Supprimer l&apos;historique d&apos;actions</span>
+            </button>
           </div>
 
           <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -499,7 +569,16 @@ export default function AdminCockpitPage() {
                   <span className="font-bold text-white">{log.companyName}</span>
                   <p className="text-[11px] text-zinc-500 mt-0.5 font-medium">Motif : {log.reason}</p>
                 </div>
-                <span className="font-mono text-[10px] text-zinc-500 shrink-0">{log.timestamp}</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="font-mono text-[10px] text-zinc-500">{log.timestamp}</span>
+                  <button
+                    onClick={() => handleDeleteSingleLog(log.id)}
+                    className="p-1 text-zinc-500 hover:text-rose-400 rounded transition-colors"
+                    title="Supprimer cet enregistrement"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

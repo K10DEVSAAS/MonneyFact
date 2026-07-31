@@ -33,28 +33,31 @@ export default function SubsidiariesPage() {
   const { organization, invoices, setActiveSubsidiaryId, activeSubsidiaryId } = useAppStore();
   const isProPlan = organization.plan === 'Pro';
 
+  const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
+
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Default clean initial state: 0 pre-populated sub-agencies!
   const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
 
   useEffect(() => {
-    const savedStr = localStorage.getItem('monneyfact_subsidiaries_list');
+    const savedStr = localStorage.getItem(`monneyfact_subsidiaries_${userEmail}`);
     if (savedStr) {
       try {
         setSubsidiaries(JSON.parse(savedStr));
       } catch (e) {
         console.error(e);
       }
+    } else {
+      setSubsidiaries([]);
     }
-  }, []);
+  }, [userEmail]);
 
   const saveSubsidiaries = (list: Subsidiary[]) => {
     setSubsidiaries(list);
     try {
-      localStorage.setItem('monneyfact_subsidiaries_list', JSON.stringify(list));
+      localStorage.setItem(`monneyfact_subsidiaries_${userEmail}`, JSON.stringify(list));
     } catch (e) {
       console.error(e);
     }

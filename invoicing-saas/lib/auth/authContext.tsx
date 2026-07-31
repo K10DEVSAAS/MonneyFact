@@ -41,7 +41,7 @@ const DEMO_ADMIN: UserSession = {
   plan: 'Pro',
 };
 
-// Check if an email is registered under a deleted company (Point 5)
+// Check if an email is registered under a deleted company
 function checkAccountDeleted(email?: string): boolean {
   if (!email) return false;
   try {
@@ -67,7 +67,8 @@ function resolveUserPlan(email?: string): PlanType {
       const companies: any[] = JSON.parse(savedStr);
       const found = companies.find(
         (c) => (c.ownerEmail && c.ownerEmail.toLowerCase() === email.toLowerCase()) ||
-               (c.email && c.email.toLowerCase() === email.toLowerCase())
+               (c.email && c.email.toLowerCase() === email.toLowerCase()) ||
+               (c.name && c.name.toLowerCase() === email.toLowerCase())
       );
       if (found && found.plan) {
         return found.plan === 'Pro' ? 'Pro' : 'Basique';
@@ -76,14 +77,13 @@ function resolveUserPlan(email?: string): PlanType {
   } catch (e) {
     console.error(e);
   }
-  return 'Basique';
+  return 'Pro';
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
 
-  // OPTIMIZATION: Default to false if user is stored locally, making page load INSTANT (0ms delay)
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const savedUser = localStorage.getItem('monneyfact_active_user');
@@ -92,16 +92,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   });
 
-  // Restore & Listen to Supabase Auth State in Background
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Instant local restoration (0ms)
+    // 1. Instant local restoration
     try {
       const savedUser = localStorage.getItem('monneyfact_active_user');
       if (savedUser && isMounted) {
         const parsed: UserSession = JSON.parse(savedUser);
-        // Check if account was deleted (Point 5)
         if (checkAccountDeleted(parsed.email)) {
           localStorage.removeItem('monneyfact_active_user');
           setUser(null);
@@ -109,7 +107,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        // Ensure plan is synced with company record (Basique or Pro)
         parsed.plan = resolveUserPlan(parsed.email);
         setUser(parsed);
         setIsLoadingSession(false);
@@ -149,8 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(activeUser);
           localStorage.setItem('monneyfact_active_user', JSON.stringify(activeUser));
         }
-      } catch (e) {
-        console.error(e);
       } finally {
         if (isMounted) setIsLoadingSession(false);
       }
@@ -202,11 +197,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsClient = (email?: string): { success: boolean; error?: string } => {
     const normalizedEmail = (email || '').toLowerCase().trim();
 
-    // Point 5: Check if company account is deleted
     if (checkAccountDeleted(normalizedEmail)) {
       return {
         success: false,
-        error: "Ce compte n'existe plus. Veuillez créer un nouveau compte.",
+        error: "Ce compte entreprise a été supprimé de la base de données par le Super Administrateur. Votre email et mot de passe ne sont plus reconnus. Veuillez vous réinscrire.",
       };
     }
 
@@ -268,7 +262,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(newUser));
 
-    // Save to company list as well
     try {
       const savedStr = localStorage.getItem('monneyfact_companies_list');
       const companies: any[] = savedStr ? JSON.parse(savedStr) : [];
@@ -282,8 +275,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status: 'active',
         registeredAt: new Date().toISOString().split('T')[0],
         totalInvoiced: 0,
+        monthlySubscription: plan === 'Pro' ? 5000 : 1000,
       };
-      localStorage.setItem('monneyfact_companies_list', JSON.stringify([newCompany, ...companies]));
+      localStorage.setItem('monneyfact_companies_list', JSON.stringify([newCompany, ...companies.filter((c) => c.ownerEmail !== email)]));
     } catch (e) {
       console.error(e);
     }
@@ -291,7 +285,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push('/dashboard');
   };
 
-  // OFFICIAL GOOGLE OAUTH 2.0 REDIRECT
   const loginWithGoogle = async () => {
     const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
 
@@ -350,3 +343,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

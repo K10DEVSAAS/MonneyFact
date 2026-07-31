@@ -35,64 +35,50 @@ interface AuditLogEntry {
 export default function TeamPage() {
   const { organization } = useAppStore();
   const isProPlan = organization.plan === 'Pro';
+  const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
 
   const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('monneyfact_subsidiaries_list');
-      if (saved) setSubsidiaries(JSON.parse(saved));
+      const savedSubs = localStorage.getItem(`monneyfact_subsidiaries_${userEmail}`);
+      if (savedSubs) setSubsidiaries(JSON.parse(savedSubs));
+
+      const savedMembers = localStorage.getItem(`monneyfact_team_${userEmail}`);
+      if (savedMembers) {
+        setMembers(JSON.parse(savedMembers));
+      } else {
+        const ownerMember: TeamMember = {
+          id: `m-owner`,
+          organizationId: organization.id,
+          name: organization.name,
+          email: organization.email || 'gerant@entreprise.ci',
+          role: 'Administrateur Interne',
+          permissions: ['create_invoices', 'edit_invoices', 'delete_invoices', 'send_invoices', 'manage_clients', 'view_analytics', 'manage_payments', 'manage_team'],
+          accessScope: 'global',
+          allowedSubsidiaryIds: [],
+          status: 'Actif',
+          createdAt: new Date().toISOString(),
+        };
+        setMembers([ownerMember]);
+      }
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [organization.id, organization.name, organization.email, userEmail]);
 
-  const [members, setMembers] = useState<TeamMember[]>([
-    {
-      id: 'm1',
-      organizationId: organization.id,
-      name: organization.name,
-      email: organization.email || 'gerant@entreprise.ci',
-      role: 'Administrateur Interne',
-      permissions: ['create_invoices', 'edit_invoices', 'delete_invoices', 'send_invoices', 'manage_clients', 'view_analytics', 'manage_payments', 'manage_team'],
-      accessScope: 'global',
-      allowedSubsidiaryIds: [],
-      status: 'Actif',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'm2',
-      organizationId: organization.id,
-      name: 'Cabinet Comptable CI',
-      email: 'comptable@cabinet-abidjan.ci',
-      role: 'Comptable',
-      permissions: ['view_analytics', 'manage_payments', 'send_invoices'],
-      accessScope: 'global',
-      allowedSubsidiaryIds: [],
-      status: 'Actif',
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+  const saveMembersList = (list: TeamMember[]) => {
+    setMembers(list);
+    try {
+      localStorage.setItem(`monneyfact_team_${userEmail}`, JSON.stringify(list));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-  // Audit Log State (Point 3)
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([
-    {
-      id: 'log-1',
-      userEmail: organization.email || 'gerant@entreprise.ci',
-      userName: organization.name,
-      action: 'Création Facture N° FAC-2026-001',
-      target: 'Facturation',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: 'log-2',
-      userEmail: 'comptable@cabinet-abidjan.ci',
-      userName: 'Cabinet Comptable CI',
-      action: 'Exportation Rapport Financier (.xlsx)',
-      target: 'Comptabilité',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+
 
   // Form state for creating member with fine permissions & scoping
   const [newEmail, setNewEmail] = useState('');
@@ -201,7 +187,7 @@ export default function TeamPage() {
       timestamp: new Date().toISOString(),
     };
 
-    setMembers([...members, createdMember]);
+    saveMembersList([...members, createdMember]);
     setAuditLogs([newLog, ...auditLogs]);
     setSending(false);
     setInviteModal({

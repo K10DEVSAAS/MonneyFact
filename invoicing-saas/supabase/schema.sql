@@ -1,7 +1,17 @@
 -- ========================================================
 -- SCHÉMA DE BASE DE DONNÉES PRODUCTION MONNEYFACT (CÔTE D'IVOIRE)
--- SYNEPAY READY & PUBLIC GUEST PAYMENT ENGINE
+-- SYSTEME ISOLÉ MULTI-TENANT & GESTION DES ABONNEMENTS 1000 FCFA / 5000 FCFA
 -- ========================================================
+
+-- Procedure pour purger/réinitialiser la base de données propre
+-- DROP TABLE IF EXISTS public.notifications CASCADE;
+-- DROP TABLE IF EXISTS public.invoice_items CASCADE;
+-- DROP TABLE IF EXISTS public.invoices CASCADE;
+-- DROP TABLE IF EXISTS public.clients CASCADE;
+-- DROP TABLE IF EXISTS public.subsidiaries CASCADE;
+-- DROP TABLE IF EXISTS public.team_members CASCADE;
+-- DROP TABLE IF EXISTS public.profiles CASCADE;
+-- DROP TABLE IF EXISTS public.organizations CASCADE;
 
 -- 1. Table des Entreprises (Organizations)
 CREATE TABLE IF NOT EXISTS public.organizations (
@@ -14,6 +24,10 @@ CREATE TABLE IF NOT EXISTS public.organizations (
     logo_url TEXT,
     currency TEXT DEFAULT 'FCFA',
     default_tax_rate NUMERIC DEFAULT 18,
+    plan TEXT CHECK (plan IN ('Basique', 'Pro')) DEFAULT 'Pro',
+    status TEXT CHECK (status IN ('active', 'expired', 'suspended')) DEFAULT 'active',
+    activated_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -23,15 +37,45 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     role TEXT CHECK (role IN ('client', 'super_admin')) DEFAULT 'client',
-    organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL,
-    plan TEXT CHECK (plan IN ('Gratuit', 'Pro', 'Business')) DEFAULT 'Pro',
+    organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+    plan TEXT CHECK (plan IN ('Basique', 'Pro')) DEFAULT 'Pro',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Table des Clients (Clients)
+-- 3. Table des Sous-Entreprises / Filiales (Subsidiaries)
+CREATE TABLE IF NOT EXISTS public.subsidiaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'Agence Régionale',
+    city TEXT DEFAULT 'Abidjan',
+    address TEXT,
+    phone TEXT,
+    email TEXT,
+    manager_name TEXT,
+    rccm_number TEXT,
+    tax_id TEXT,
+    status TEXT DEFAULT 'actif',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Table des Collaborateurs & Équipe (Team Members)
+CREATE TABLE IF NOT EXISTS public.team_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    role TEXT DEFAULT 'Gestionnaire',
+    access_scope TEXT DEFAULT 'global',
+    status TEXT DEFAULT 'Actif',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Table des Clients (Clients)
 CREATE TABLE IF NOT EXISTS public.clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    subsidiary_id UUID REFERENCES public.subsidiaries(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     email TEXT,
     phone TEXT,
@@ -43,11 +87,12 @@ CREATE TABLE IF NOT EXISTS public.clients (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Table des Factures (Invoices) - Avec champs SynePay & Jeton de Paiement Sécurisé
+-- 6. Table des Factures (Invoices)
 CREATE TABLE IF NOT EXISTS public.invoices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_number TEXT NOT NULL,
     organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    subsidiary_id UUID REFERENCES public.subsidiaries(id) ON DELETE SET NULL,
     client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
     client_name TEXT NOT NULL,
     client_email TEXT,
@@ -68,7 +113,7 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Table des Lignes de Facture (Invoice Items)
+-- 7. Table des Lignes de Facture (Invoice Items)
 CREATE TABLE IF NOT EXISTS public.invoice_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_id UUID NOT NULL REFERENCES public.invoices(id) ON DELETE CASCADE,
@@ -78,7 +123,7 @@ CREATE TABLE IF NOT EXISTS public.invoice_items (
     line_total NUMERIC NOT NULL
 );
 
--- 6. Table des Notifications Isolées par Entreprise (Notifications)
+-- 8. Table des Notifications Isolées par Entreprise
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -89,26 +134,32 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Activer Row Level Security (RLS) sur toutes les tables
+-- Enable RLS
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subsidiaries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoice_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
--- Supprimer d'anciennes politiques si existantes pour déploiement propre
+-- Clean Policies
 DROP POLICY IF EXISTS "Acces total organizations" ON public.organizations;
 DROP POLICY IF EXISTS "Acces total profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Acces total subsidiaries" ON public.subsidiaries;
+DROP POLICY IF EXISTS "Acces total team_members" ON public.team_members;
 DROP POLICY IF EXISTS "Acces total clients" ON public.clients;
 DROP POLICY IF EXISTS "Acces total invoices" ON public.invoices;
 DROP POLICY IF EXISTS "Acces total invoice_items" ON public.invoice_items;
 DROP POLICY IF EXISTS "Acces total notifications" ON public.notifications;
 
--- Politiques de sécurité (Lecture/Écriture autorisées)
 CREATE POLICY "Acces total organizations" ON public.organizations FOR ALL USING (true);
 CREATE POLICY "Acces total profiles" ON public.profiles FOR ALL USING (true);
+CREATE POLICY "Acces total subsidiaries" ON public.subsidiaries FOR ALL USING (true);
+CREATE POLICY "Acces total team_members" ON public.team_members FOR ALL USING (true);
 CREATE POLICY "Acces total clients" ON public.clients FOR ALL USING (true);
 CREATE POLICY "Acces total invoices" ON public.invoices FOR ALL USING (true);
 CREATE POLICY "Acces total invoice_items" ON public.invoice_items FOR ALL USING (true);
 CREATE POLICY "Acces total notifications" ON public.notifications FOR ALL USING (true);
+
