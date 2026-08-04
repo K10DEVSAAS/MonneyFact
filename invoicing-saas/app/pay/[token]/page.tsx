@@ -152,23 +152,22 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
       });
 
       if (cRes.code === '201' && cRes.data?.payment_url) {
-        window.open(cRes.data.payment_url, '_blank');
-        updateInvoiceStatus(invoice.id, 'paid');
-        await supabase
-          .from('invoices')
-          .update({ status: 'paid', paid_at: new Date().toISOString() })
-          .or(`id.eq.${invoice.id},payment_token.eq.${invoice.id}`);
-        setTransactionRef(`CPAY-${Date.now()}`);
-        setPaymentSuccess(true);
+        // Redirection sécurisée vers le guichet officiel de paiement
+        window.location.href = cRes.data.payment_url;
       } else {
-        // Simulation mode for testing (1-second delay)
+        // Mode Simulation pour les tests locaux lorsque l'API CinetPay n'est pas configurée
         await new Promise((resolve) => setTimeout(resolve, 1000));
         updateInvoiceStatus(invoice.id, 'paid');
         await supabase
           .from('invoices')
-          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            payment_method: selectedChannel || 'mobile_money',
+            payment_transaction_id: `CPAY-SIM-${Date.now()}`
+          })
           .or(`id.eq.${invoice.id},payment_token.eq.${invoice.id}`);
-        setTransactionRef(`CPAY-TX-${Date.now()}`);
+        setTransactionRef(`CPAY-SIM-${Date.now()}`);
         setPaymentSuccess(true);
       }
     } catch (err: any) {

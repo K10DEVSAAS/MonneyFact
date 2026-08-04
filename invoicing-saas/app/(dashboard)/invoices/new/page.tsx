@@ -25,7 +25,7 @@ import { Subsidiary } from '@/lib/types/invoice';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, addInvoice, organization } = useAppStore();
+  const { clients, invoices, addInvoice, organization } = useAppStore();
 
   const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState('');
@@ -127,7 +127,9 @@ export default function NewInvoicePage() {
     setIsSubmitting(true);
 
     try {
-      const generatedNumber = `FAC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const currentYear = new Date().getFullYear();
+      const seqNumber = (invoices.length + 1).toString().padStart(4, '0');
+      const generatedNumber = `FAC-${currentYear}-${seqNumber}`;
 
       const chosenSub = isProPlan ? subsidiariesList.find((s) => s.id === selectedSubsidiaryId) : undefined;
 

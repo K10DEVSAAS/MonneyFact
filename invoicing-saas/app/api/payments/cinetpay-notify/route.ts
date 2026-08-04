@@ -26,10 +26,15 @@ export async function POST(req: NextRequest) {
       const invoiceId = metadata.invoiceId;
 
       if (invoiceId) {
-        // Update invoice status to 'paid' in Supabase database
+        // Update invoice status to 'paid' with full metadata in Supabase database
         await supabase
           .from('invoices')
-          .update({ status: 'paid' })
+          .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            payment_method: 'cinetpay',
+            payment_transaction_id: cpayTransId,
+          })
           .eq('id', invoiceId);
       }
     }

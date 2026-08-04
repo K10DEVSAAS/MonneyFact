@@ -26,9 +26,16 @@ export async function POST(request: Request) {
     } = body;
 
     const token = paymentToken || body.id || `inv-${Date.now()}`;
-    const validOrgId = organizationId && /^[0-9a-f-]{36}$/i.test(organizationId)
-      ? organizationId
-      : 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
+    const isValidUuid = organizationId && /^[0-9a-f-]{36}$/i.test(organizationId);
+
+    if (!isValidUuid) {
+      return NextResponse.json(
+        { success: false, error: 'Identifiant d\'organisation (organizationId) valide requis.' },
+        { status: 400 }
+      );
+    }
+
+    const validOrgId = organizationId;
 
     // 1. Ensure Organization exists in DB
     const { error: orgErr } = await supabase.from('organizations').upsert({
