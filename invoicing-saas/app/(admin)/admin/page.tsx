@@ -160,7 +160,7 @@ export default function AdminCockpitPage() {
   const expiringSoonCount = displayList.filter((c) => c.daysRemaining > 0 && c.daysRemaining <= 5).length;
 
   const handleDeleteCompany = async (compId: string, compName: string, ownerEmail?: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ? Cette action effacera complètement le compte du système.`)) {
+    if (confirm(`Êtes-vous absolument sûr de vouloir SUPPRIMER DÉFINITIVEMENT le compte entreprise "${compName}" ? Cette action risque de supprimer entièrement tous les enregistrements relatifs à cette entreprise dans la base de données.`)) {
       const updatedCompanies = displayList.filter((c) => c.id !== compId && c.name !== compName);
       setLiveCompanies(updatedCompanies);
       localStorage.setItem('monneyfact_companies_list', JSON.stringify(updatedCompanies));
@@ -199,7 +199,7 @@ export default function AdminCockpitPage() {
       setAuditLogs(updatedLogs);
       localStorage.setItem('monneyfact_audit_logs', JSON.stringify(updatedLogs));
 
-      alert(`Le compte entreprise "${compName}" a été supprimé avec succès. Toute tentative de connexion avec ses identifiants sera dorénavant rejetée.`);
+      alert(`Le compte entreprise "${compName}" a été supprimé avec succès de la base de données. Toute tentative de connexion avec ses identifiants sera dorénavant rejetée.`);
     }
   };
 
@@ -214,6 +214,19 @@ export default function AdminCockpitPage() {
     const updated = auditLogs.filter((l) => l.id !== logId);
     setAuditLogs(updated);
     localStorage.setItem('monneyfact_audit_logs', JSON.stringify(updated));
+  };
+
+  const handleClearPaymentLogs = () => {
+    if (confirm("Êtes-vous sûr de vouloir SUPPRIMER L'HISTORIQUE COMPLET des paiements d'abonnements ?")) {
+      setSimulatedPayments([]);
+      localStorage.removeItem('monneyfact_simulated_payments');
+    }
+  };
+
+  const handleDeleteSinglePayment = (idxToDelete: number) => {
+    const updated = simulatedPayments.filter((_, idx) => idx !== idxToDelete);
+    setSimulatedPayments(updated);
+    localStorage.setItem('monneyfact_simulated_payments', JSON.stringify(updated));
   };
 
   const handleConfirmAction = () => {

@@ -2,12 +2,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFFFFF;
-  --foreground: #09090B;
+  --background: #FAFAFA;
+  --foreground: #0F172A;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --color-primary: #EA580C;
   --color-primary-hover: #C2410C;
+
+  /* Notion-inspired Minimal Tokens */
+  --notion-bg: #FFFFFF;
+  --notion-sidebar: #F7F6F3;
+  --notion-border: #E9E9E7;
+  --notion-hover: #EFEFEF;
+  --notion-text: #37352F;
+  --notion-text-muted: #787774;
 }
 
 body {
@@ -45,11 +53,50 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes inputFocusGlow {
+  0% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0); }
+  100% { box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.15); }
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
 }
 
 .glass-card {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
+}
+
+/* Notion-style subtle dot grid background pattern */
+.bg-notion-grid {
+  background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Search Input Micro-Animations & Notion Focus Styling */
+.notion-input-search {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.notion-input-search:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(234, 88, 12, 0.12), 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+
+.notion-card-interactive {
+  transition: all 0.2s ease-in-out;
+}
+
+.notion-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
 }

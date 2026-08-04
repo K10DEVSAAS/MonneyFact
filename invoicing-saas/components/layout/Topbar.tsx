@@ -45,7 +45,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   const today = formatDate(new Date().toISOString());
   const unreadCount = isAdmin ? unreadAdminNotifCount : unreadCompanyNotifCount;
   const isPro = organization.plan === 'Pro';
-  const hasSubCompanies = isPro && subsidiaries.length > 0;
+  const hasSubCompanies = !isAdmin && isPro && subsidiaries.length > 0;
   const isCollaborator = user?.isCollaborator;
   const [timeLeftStr, setTimeLeftStr] = useState<string>('');
 
