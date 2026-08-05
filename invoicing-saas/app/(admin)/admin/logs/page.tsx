@@ -21,6 +21,7 @@ import {
   User,
   Globe,
 } from 'lucide-react';
+import { useAppStore } from '@/lib/store/appStore';
 import { EmailLogEntry } from '@/lib/services/emailService';
 
 export interface AuditLogEntry {
@@ -36,9 +37,11 @@ export interface AuditLogEntry {
 }
 
 export default function AdminLogsPage() {
+  const { globalSearchQuery } = useAppStore();
   const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const activeSearch = searchQuery || globalSearchQuery;
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
   const [clearModalOpen, setClearModalOpen] = useState(false);
@@ -104,10 +107,10 @@ export default function AdminLogsPage() {
   // Search & Filter Logic
   const filteredAuditLogs = auditLogs.filter((log) => {
     const matchesSearch =
-      log.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (log.companyName && log.companyName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (log.adminIdentity && log.adminIdentity.toLowerCase().includes(searchQuery.toLowerCase()));
+      log.title.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      log.details.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      (log.companyName && log.companyName.toLowerCase().includes(activeSearch.toLowerCase())) ||
+      (log.adminIdentity && log.adminIdentity.toLowerCase().includes(activeSearch.toLowerCase()));
 
     const matchesAction = actionFilter === 'all' || log.action === actionFilter;
 

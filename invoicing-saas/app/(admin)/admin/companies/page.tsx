@@ -32,12 +32,13 @@ import { supabase } from '@/lib/supabase/client';
 import { RegisteredCompany, CompanyCollaborator, CompanySubsidiary } from '@/lib/data/mockAdminData';
 
 export default function CompaniesAdminPage() {
-  const { registeredCompanies } = useAppStore();
+  const { registeredCompanies, globalSearchQuery } = useAppStore();
   const [liveCompanies, setLiveCompanies] = useState<RegisteredCompany[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters & Search State
   const [searchQuery, setSearchQuery] = useState('');
+  const activeSearch = searchQuery || globalSearchQuery;
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [planFilter, setPlanFilter] = useState<'all' | 'Basique' | 'Pro'>('all');
   const [subFilter, setSubFilter] = useState<'all' | 'with_subs' | 'no_subs'>('all');
@@ -167,9 +168,9 @@ export default function CompaniesAdminPage() {
   // Filtered List Logic
   const filteredCompanies = displayList.filter((comp) => {
     const matchesSearch =
-      comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comp.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (comp.ownerEmail && comp.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase()));
+      comp.name.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      comp.ownerName.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      (comp.ownerEmail && comp.ownerEmail.toLowerCase().includes(activeSearch.toLowerCase()));
 
     const matchesStatus = statusFilter === 'all' || comp.status === statusFilter;
     const matchesPlan = planFilter === 'all' || comp.plan === planFilter;

@@ -10,14 +10,31 @@ import { useAppStore } from '@/lib/store/appStore';
 import { useAuth } from '@/lib/auth/authContext';
 
 export default function DashboardPage() {
-  const { organization, stats, invoices } = useAppStore();
+  const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId } = useAppStore();
   const { user } = useAuth();
 
   const isPro = organization.plan === 'Pro';
   const isZeroState = invoices.length === 0;
+  const isCollaborator = user?.isCollaborator;
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
+      {/* Subsidiary Active Switch Banner */}
+      {activeSubsidiaryId !== 'global' && (
+        <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl flex items-center justify-between gap-4 text-xs font-bold text-orange-950">
+          <div className="flex items-center gap-2">
+            <Building className="w-4 h-4 text-orange-600 shrink-0" />
+            <span>📍 Vous consultez l&apos;établissement spécifique (les chiffres et factures affichés concernent cette agence).</span>
+          </div>
+          <button
+            onClick={() => setActiveSubsidiaryId('global')}
+            className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-extrabold shadow-xs transition-all shrink-0"
+          >
+            Vue Globale Consolidée
+          </button>
+        </div>
+      )}
+
       {/* Active Context Banner */}
       <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-xl relative overflow-hidden">
         {/* Subtle Orange Glow */}
@@ -41,13 +58,19 @@ export default function DashboardPage() {
                   Plan Basique (1 000 FCFA/m)
                 </span>
               )}
+
+              {isCollaborator && (
+                <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-extrabold border border-amber-500/30">
+                  Session Collaborateur Active
+                </span>
+              )}
             </div>
 
             <h2 className="text-2xl lg:text-3xl font-black tracking-tight">
               Bonjour, {user?.name || organization.name} ! 👋
             </h2>
             <p className="text-zinc-400 text-sm max-w-xl">
-              Voici l&apos;état récapitulatif général de votre activité de facturation et d&apos;encaissement en FCFA.
+              Voici l&apos;état récapitulatif de votre activité de facturation et d&apos;encaissement en FCFA.
             </p>
           </div>
 
