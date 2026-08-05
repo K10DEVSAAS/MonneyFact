@@ -202,6 +202,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsClient = (email?: string): { success: boolean; error?: string } => {
     const normalizedEmail = (email || '').toLowerCase().trim();
 
+    if (!normalizedEmail) {
+      return { success: false, error: 'Veuillez saisir votre adresse email.' };
+    }
+
     if (checkAccountDeleted(normalizedEmail)) {
       return {
         success: false,
@@ -210,6 +214,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
+
+    // STRICT SECURITY CHECK: Reject un-registered accounts
+    if (!isSuperAdmin) {
+      let isRegistered = false;
+
+      try {
+        const savedStr = localStorage.getItem('monneyfact_companies_list');
+        if (savedStr) {
+          const companies: any[] = JSON.parse(savedStr);
+          isRegistered = companies.some(
+            (c) =>
+              (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
+              (c.email && c.email.toLowerCase() === normalizedEmail)
+          );
+        }
+
+        if (!isRegistered) {
+          const userOrg = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
+          if (userOrg) isRegistered = true;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (!isRegistered) {
+        return {
+          success: false,
+          error: "Accès refusé : Ce compte n'existe pas ou n'est pas encore inscrit sur MonneyFact. Veuillez créer votre compte entreprise via le formulaire d'inscription.",
+        };
+      }
+    }
+
     const actualPlan = resolveUserPlan(email);
 
     const loggedInUser: UserSession = {
