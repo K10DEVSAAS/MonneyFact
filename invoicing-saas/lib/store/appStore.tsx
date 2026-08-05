@@ -133,6 +133,47 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (savedCompList && isSubscribed) {
           setRegisteredCompanies(JSON.parse(savedCompList));
         }
+
+        // Restore from Supabase DB asynchronously for 100% data durability on re-login
+        if (userEmail) {
+          try {
+            const dbOrg = await dbService.getOrganization(userEmail);
+            if (dbOrg && isSubscribed) {
+              currentOrg = { ...currentOrg, ...dbOrg };
+              setOrganization(currentOrg);
+              localStorage.setItem(`monneyfact_org_${userEmail}`, JSON.stringify(currentOrg));
+            }
+          } catch (dbErr) {
+            console.warn('Supabase org load warning:', dbErr);
+          }
+        }
+
+        if (currentOrg.id && isSubscribed) {
+          try {
+            const [dbInvoices, dbClients, dbNotifs] = await Promise.all([
+              dbService.getInvoices(currentOrg.id),
+              dbService.getClients(currentOrg.id),
+              dbService.getCompanyNotifications(currentOrg.id),
+            ]);
+
+            if (isSubscribed) {
+              if (dbInvoices && dbInvoices.length > 0) {
+                setInvoices(dbInvoices);
+                if (userEmail) localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(dbInvoices));
+              }
+              if (dbClients && dbClients.length > 0) {
+                setClients(dbClients);
+                if (userEmail) localStorage.setItem(`monneyfact_clients_${userEmail}`, JSON.stringify(dbClients));
+              }
+              if (dbNotifs && dbNotifs.length > 0) {
+                setCompanyNotifications(dbNotifs);
+                if (userEmail) localStorage.setItem(`monneyfact_notifs_${userEmail}`, JSON.stringify(dbNotifs));
+              }
+            }
+          } catch (dbErr) {
+            console.warn('Supabase data restoration warning:', dbErr);
+          }
+        }
       } catch (e) {
         console.error(e);
       }
@@ -326,7 +367,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const addClient = (newCli: Omit<Client, 'id' | 'createdAt'>) => {
+  const addClient = async (newCli: Omit<Client, 'id' | 'createdAt'>) => {
     const created: Client = {
       ...newCli,
       id: `cli-${Date.now()}`,
@@ -336,6 +377,15 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
     const updated = [created, ...clients];
     saveClientsForUser(updated);
+
+    try {
+      if (organization.id) {
+        await dbService.createClient({ ...created, organizationId: organization.id });
+      }
+    } catch (dbErr) {
+      console.warn('Supabase create client warning:', dbErr);
+    }
+
     addCompanyNotif('Nouveau Client Enregistré', `Le client "${created.name}" a été ajouté à votre répertoire.`, 'success');
   };
 
