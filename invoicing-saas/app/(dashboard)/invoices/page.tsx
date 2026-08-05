@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { subscriptionService } from '@/lib/services/subscriptionService';
 
 export default function InvoicesPage() {
-  const { invoices, organization } = useAppStore();
+  const { invoices, organization, globalSearchQuery } = useAppStore();
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -24,11 +24,13 @@ export default function InvoicesPage() {
   const isBasique = organization.plan === 'Basique';
   const basiqueLimitReached = isBasique && invoices.length >= 10;
 
+  const activeSearch = searchQuery || globalSearchQuery;
+
   const filteredInvoices = invoices.filter((inv) => {
     const matchesStatus = selectedStatus === 'all' || inv.status === selectedStatus;
     const matchesQuery =
-      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.clientName.toLowerCase().includes(searchQuery.toLowerCase());
+      inv.invoiceNumber.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      inv.clientName.toLowerCase().includes(activeSearch.toLowerCase());
     return matchesStatus && matchesQuery;
   });
 

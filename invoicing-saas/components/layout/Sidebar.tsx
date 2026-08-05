@@ -70,8 +70,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div className="px-4 py-3 border-b border-zinc-800/60">
           <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 flex items-center justify-center shrink-0">
-                <Building2 className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 flex items-center justify-center shrink-0 overflow-hidden">
+                {organization.logoUrl ? (
+                  <img src={organization.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                ) : (
+                  <Building2 className="w-4 h-4" />
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-white truncate">{organization.name}</p>

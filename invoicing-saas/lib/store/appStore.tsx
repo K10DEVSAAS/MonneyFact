@@ -27,6 +27,8 @@ interface AppStoreType {
   registeredCompanies: RegisteredCompany[];
   unreadCompanyNotifCount: number;
   unreadAdminNotifCount: number;
+  globalSearchQuery: string;
+  setGlobalSearchQuery: (query: string) => void;
   activeSubsidiaryId: string;
   setActiveSubsidiaryId: (id: string) => void;
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt'>) => Promise<void>;
@@ -56,6 +58,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [activeSubsidiaryId, setActiveSubsidiaryId] = useState<string>('global');
+  const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
 
   const [companyNotifications, setCompanyNotifications] = useState<AppNotification[]>([]);
   const [adminNotifications, setAdminNotifications] = useState<AppNotification[]>([]);
@@ -351,9 +354,30 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         const email = updated.email ? updated.email.toLowerCase() : 'guest';
         localStorage.setItem(`monneyfact_org_${email}`, JSON.stringify(updated));
+
+        // Sync active user in localStorage
+        const savedUserStr = localStorage.getItem('monneyfact_active_user');
+        if (savedUserStr) {
+          const u = JSON.parse(savedUserStr);
+          u.companyName = updated.name;
+          localStorage.setItem('monneyfact_active_user', JSON.stringify(u));
+        }
       } catch (e) {
         console.error(e);
       }
+
+      // Sync with Supabase DB
+      if (updated.email && updated.name) {
+        dbService.upsertOrganization({
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          address: updated.address,
+          taxId: updated.taxId,
+          logoUrl: updated.logoUrl,
+        }).catch((err) => console.warn('Supabase org sync warning:', err));
+      }
+
       return updated;
     });
     addCompanyNotif('Profil Mis à Jour', 'Les informations officielles de votre entreprise ont été mises à jour.', 'info');
@@ -494,6 +518,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         unreadAdminNotifCount,
         activeSubsidiaryId,
         setActiveSubsidiaryId: handleSetActiveSub,
+        globalSearchQuery,
+        setGlobalSearchQuery,
         addInvoice,
         updateInvoiceStatus,
         deleteInvoice,

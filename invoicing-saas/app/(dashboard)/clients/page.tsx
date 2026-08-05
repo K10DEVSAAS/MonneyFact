@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
 
 export default function ClientsPage() {
-  const { clients, addClient, deleteClient, organization } = useAppStore();
+  const { clients, addClient, deleteClient, organization, globalSearchQuery } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -22,11 +22,13 @@ export default function ClientsPage() {
     city: 'Abidjan',
   });
 
+  const activeSearch = searchQuery || globalSearchQuery;
+
   const filteredClients = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.city.toLowerCase().includes(searchQuery.toLowerCase())
+      c.name.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      c.email.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      c.city.toLowerCase().includes(activeSearch.toLowerCase())
   );
 
   const handleCreateClient = (e: React.FormEvent) => {

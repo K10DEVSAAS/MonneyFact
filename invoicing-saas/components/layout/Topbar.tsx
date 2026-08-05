@@ -20,7 +20,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === 'super_admin';
-  const { organization, unreadCompanyNotifCount, unreadAdminNotifCount, activeSubsidiaryId, setActiveSubsidiaryId } = useAppStore();
+  const { organization, unreadCompanyNotifCount, unreadAdminNotifCount, activeSubsidiaryId, setActiveSubsidiaryId, globalSearchQuery, setGlobalSearchQuery } = useAppStore();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isSubDropdownOpen, setIsSubDropdownOpen] = useState(false);
 
@@ -179,6 +179,8 @@ export const Topbar: React.FC<TopbarProps> = ({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
+              value={globalSearchQuery}
+              onChange={(e) => setGlobalSearchQuery(e.target.value)}
               placeholder={isAdmin ? "Rechercher une entreprise, abonnement, journal..." : "Rechercher une facture, un client, un montant..."}
               className="w-full pl-10 pr-4 py-2 text-xs bg-slate-100 border border-transparent rounded-2xl focus:bg-white focus:border-slate-300 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 font-medium"
             />

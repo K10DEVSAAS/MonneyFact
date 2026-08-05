@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, CheckCheck, Trash2, X, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { useAuth } from '@/lib/auth/authContext';
@@ -17,6 +18,11 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
 }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'super_admin';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const {
     companyNotifications,
@@ -31,7 +37,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
     clearAllAdminNotifs,
   } = useAppStore();
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof window === 'undefined') return null;
 
   const notifications = isAdmin ? adminNotifications : companyNotifications;
   const markAsRead = isAdmin ? markAdminNotifAsRead : markCompanyNotifAsRead;
@@ -39,9 +45,9 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   const deleteNotif = isAdmin ? deleteAdminNotif : deleteCompanyNotif;
   const clearAll = isAdmin ? clearAllAdminNotifs : clearAllCompanyNotifs;
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-xs animate-fade-in">
-      <div className="w-full max-w-sm bg-white h-full shadow-2xl flex flex-col font-sans border-l border-slate-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex justify-end bg-slate-950/60 backdrop-blur-xs animate-fade-in font-sans">
+      <div className="w-full max-w-sm bg-white h-full shadow-2xl flex flex-col border-l border-slate-200">
         
         {/* Header */}
         <div className={`p-5 text-white flex items-center justify-between shrink-0 ${isAdmin ? 'bg-[#0B0F17] border-b border-indigo-500/30' : 'bg-slate-950'}`}>
@@ -147,6 +153,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
