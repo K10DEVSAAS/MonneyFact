@@ -38,8 +38,8 @@ export default function AdminCockpitPage() {
   const [liveCompanies, setLiveCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState('Jan 08 - Aug 08');
-  const [activeHoverMonth, setActiveHoverMonth] = useState<string | null>('May');
+  const [selectedPeriod, setSelectedPeriod] = useState('08 Jan - 08 Août 2026');
+  const [activeHoverMonth, setActiveHoverMonth] = useState<string | null>('Mai');
 
   useEffect(() => {
     let isMounted = true;
@@ -111,30 +111,12 @@ export default function AdminCockpitPage() {
             setAuditLogs([
               {
                 id: 'act-1',
-                title: 'Jenny Wilson (TechIvoire)',
-                action: 'Nouveau Client',
+                title: 'Initialisation du Cockpit Super Admin',
+                action: 'Nouveau Démarrage',
                 orderNumber: '#0038160',
                 timeAgo: 'il y a 2 min',
-                amount: '50 000 FCFA',
+                amount: '0 FCFA',
                 avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-              },
-              {
-                id: 'act-2',
-                title: 'Guy Hawkins (Sipim S.A)',
-                action: 'Formule Pro Activée',
-                orderNumber: '#0038159',
-                timeAgo: 'il y a 15 min',
-                amount: '150 000 FCFA',
-                avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-              },
-              {
-                id: 'act-3',
-                title: 'Ralph Edwards (Kouassi Distrib)',
-                action: 'Création Sous-entreprise',
-                orderNumber: '#0038158',
-                timeAgo: 'il y a 45 min',
-                amount: '25 000 FCFA',
-                avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
               },
             ]);
           }
@@ -160,25 +142,26 @@ export default function AdminCockpitPage() {
   const activeCount = displayList.filter((c) => c.status === 'active').length;
   const retentionRate = displayList.length > 0 ? Math.round((activeCount / displayList.length) * 10000) / 100 : 100;
 
-  // Monthly Growth Chart Dummy/Calculated Bar Data
+  // Monthly Growth Chart Data (French Month Names)
   const monthlyData = [
-    { month: 'Jan', y2025: 38, y2026: 48 },
-    { month: 'Feb', y2025: 45, y2026: 62 },
-    { month: 'Mar', y2025: 36, y2026: 42 },
-    { month: 'Apr', y2025: 42, y2026: 44 },
-    { month: 'May', y2025: 28, y2026: 48, val2025: '25 591 FCFA', val2026: '47 921 FCFA' },
-    { month: 'Jun', y2025: 35, y2026: 42 },
-    { month: 'Jul', y2025: 46, y2026: 52 },
-    { month: 'Aug', y2025: 34, y2026: 46 },
+    { month: 'Jan', y2025: 10, y2026: 20 },
+    { month: 'Fév', y2025: 15, y2026: 30 },
+    { month: 'Mar', y2025: 20, y2026: 35 },
+    { month: 'Avr', y2025: 25, y2026: 40 },
+    { month: 'Mai', y2025: 28, y2026: 48, val2025: '25 591 FCFA', val2026: '47 921 FCFA' },
+    { month: 'Juin', y2025: 35, y2026: 55 },
+    { month: 'Juil', y2025: 40, y2026: 65 },
+    { month: 'Août', y2025: 45, y2026: 75 },
   ];
 
   return (
     <div className="space-y-8 animate-fade-in font-sans text-slate-100 pb-12">
-      {/* Top Header Bar inspired by Dribbble Profitize */}
+      
+      {/* Top Header Bar 100% French */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/60">
         <div>
           <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <span>Overview</span>
+            <span>Vue d&apos;Ensemble</span>
             <span className="text-xs px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold">
               Super Admin SaaS
             </span>
@@ -217,7 +200,7 @@ export default function AdminCockpitPage() {
           
           {/* Section KPIs Title */}
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-white tracking-tight">KPIs</h2>
+            <h2 className="text-lg font-black text-white tracking-tight">Indicateurs Clés (KPI)</h2>
             <button className="text-slate-400 hover:text-white p-1 rounded-lg">
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -226,14 +209,14 @@ export default function AdminCockpitPage() {
           {/* KPI Card 1: Current MRR */}
           <div className="p-6 bg-[#0E131F] rounded-3xl border border-slate-800/80 shadow-xl space-y-3 relative group hover:border-indigo-500/40 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Current MRR</span>
+              <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Revenu Mensuel (MRR)</span>
               <span className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
                 <ArrowUpRight className="w-3 h-3" />
-                16%
+                +16%
               </span>
             </div>
             <div className="text-3xl font-black text-white tracking-tight">
-              {totalMRR > 0 ? formatFCFA(totalMRR) : '855.4k FCFA'}
+              {formatFCFA(totalMRR)}
             </div>
             <p className="text-[11px] text-slate-500">Revenu récurrent mensuel des abonnements</p>
           </div>
@@ -241,16 +224,16 @@ export default function AdminCockpitPage() {
           {/* KPI Card 2: Current Customers */}
           <div className="p-6 bg-[#0E131F] rounded-3xl border border-slate-800/80 shadow-xl space-y-3 relative group hover:border-indigo-500/40 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Entreprises Enregistrées</span>
+              <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Entreprises Clientes</span>
               <span className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
                 <ArrowUpRight className="w-3 h-3" />
-                17%
+                +17%
               </span>
             </div>
             <div className="text-3xl font-black text-white tracking-tight">
               {displayList.length.toLocaleString('fr-FR')}
             </div>
-            <p className="text-[11px] text-slate-500">Comptes entreprises actifs sur la plateforme</p>
+            <p className="text-[11px] text-slate-500">Comptes entreprises inscrits sur la plateforme</p>
           </div>
 
           {/* KPI Card 3: Active Rate */}
@@ -259,7 +242,7 @@ export default function AdminCockpitPage() {
               <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Taux d&apos;Activité</span>
               <span className="inline-flex items-center gap-1 text-xs font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
                 <ArrowUpRight className="w-3 h-3" />
-                21%
+                +21%
               </span>
             </div>
             <div className="text-3xl font-black text-white tracking-tight">
@@ -271,7 +254,7 @@ export default function AdminCockpitPage() {
           {/* Donut Chart / Analytics Section */}
           <div className="p-6 bg-[#0E131F] rounded-3xl border border-slate-800/80 shadow-xl space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-white tracking-tight">Analytics</h3>
+              <h3 className="text-lg font-black text-white tracking-tight">Répartition des Formules</h3>
               <MoreVertical className="w-4 h-4 text-slate-400" />
             </div>
 
@@ -279,7 +262,6 @@ export default function AdminCockpitPage() {
             <div className="flex items-center justify-center relative py-4">
               <svg className="w-44 h-44 transform -rotate-90">
                 <circle cx="88" cy="88" r="65" stroke="#1E293B" strokeWidth="22" fill="transparent" />
-                {/* Segment 1: 55.5% (Violet / Indigo) */}
                 <circle
                   cx="88"
                   cy="88"
@@ -291,7 +273,6 @@ export default function AdminCockpitPage() {
                   fill="transparent"
                   className="transition-all duration-1000"
                 />
-                {/* Segment 2: 33.5% (Emerald) */}
                 <circle
                   cx="88"
                   cy="88"
@@ -303,7 +284,6 @@ export default function AdminCockpitPage() {
                   fill="transparent"
                   className="transition-all duration-1000"
                 />
-                {/* Segment 3: 11% (Slate / Dark) */}
                 <circle
                   cx="88"
                   cy="88"
@@ -318,7 +298,7 @@ export default function AdminCockpitPage() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 <span className="text-2xl font-black text-white">55.5%</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Offre Pro</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Formule Pro</span>
               </div>
             </div>
 
@@ -359,8 +339,8 @@ export default function AdminCockpitPage() {
           <div className="p-6 lg:p-8 bg-[#0E131F] rounded-3xl border border-slate-800/80 shadow-xl space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-white tracking-tight">This Year Growth</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Évolution comparative des souscriptions et revenus</p>
+                <h3 className="text-xl font-black text-white tracking-tight">Évolution de la Croissance</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Comparatif mensuel des souscriptions et du chiffre d&apos;affaires</p>
               </div>
 
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-slate-300">
@@ -373,10 +353,10 @@ export default function AdminCockpitPage() {
             {/* Interactive SVG / Bar Chart Representation */}
             <div className="relative pt-8 pb-4">
               
-              {/* Popover Tooltip for "May" */}
-              {activeHoverMonth === 'May' && (
+              {/* Popover Tooltip for "Mai" */}
+              {activeHoverMonth === 'Mai' && (
                 <div className="absolute left-[54%] top-0 -translate-x-1/2 bg-white text-slate-900 rounded-2xl px-4 py-3 shadow-2xl z-20 space-y-1 border border-slate-100 animate-scale-in text-xs font-sans">
-                  <p className="font-extrabold text-slate-900 border-b border-slate-100 pb-1">May</p>
+                  <p className="font-extrabold text-slate-900 border-b border-slate-100 pb-1">Mai</p>
                   <div className="flex items-center justify-between gap-4 text-[11px]">
                     <span className="text-slate-500 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-xs bg-slate-900 inline-block"></span>
@@ -397,7 +377,7 @@ export default function AdminCockpitPage() {
               {/* Bars Container */}
               <div className="h-64 flex items-end justify-between gap-3 px-4 border-b border-slate-800/60 pb-2">
                 {monthlyData.map((d) => {
-                  const isMay = d.month === 'May';
+                  const isMai = d.month === 'Mai';
                   return (
                     <div
                       key={d.month}
@@ -405,22 +385,20 @@ export default function AdminCockpitPage() {
                       className="flex-1 flex flex-col items-center gap-2 group cursor-pointer"
                     >
                       <div className="w-full flex items-end justify-center gap-1.5 h-48 relative">
-                        {/* 2025 Bar (Solid Dark Slate) */}
                         <div
                           style={{ height: `${d.y2025}%` }}
                           className="w-4 sm:w-5 bg-slate-800 rounded-t-md transition-all group-hover:bg-slate-700"
                         />
-                        {/* 2026 Bar (Pattern / Indigo Accent) */}
                         <div
                           style={{ height: `${d.y2026}%` }}
                           className={`w-4 sm:w-5 rounded-t-md transition-all ${
-                            isMay
+                            isMai
                               ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-lg shadow-indigo-600/40'
                               : 'bg-indigo-500/40 group-hover:bg-indigo-500'
                           }`}
                         />
                       </div>
-                      <span className={`text-xs font-extrabold ${isMay ? 'text-white font-black' : 'text-slate-500'}`}>
+                      <span className={`text-xs font-extrabold ${isMai ? 'text-white font-black' : 'text-slate-500'}`}>
                         {d.month}
                       </span>
                     </div>
@@ -431,10 +409,10 @@ export default function AdminCockpitPage() {
               {/* Y-Axis Labels */}
               <div className="flex items-center justify-between text-[10px] text-slate-500 pt-3 px-2 font-mono">
                 <span>0 FCFA</span>
-                <span>30k FCFA</span>
-                <span>40k FCFA</span>
-                <span>50k FCFA</span>
-                <span>70k FCFA</span>
+                <span>30 000 FCFA</span>
+                <span>40 000 FCFA</span>
+                <span>50 000 FCFA</span>
+                <span>70 000 FCFA</span>
               </div>
             </div>
           </div>
@@ -443,7 +421,7 @@ export default function AdminCockpitPage() {
           <div className="p-6 lg:p-8 bg-[#0E131F] rounded-3xl border border-slate-800/80 shadow-xl space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-white tracking-tight">Recent Activity</h3>
+                <h3 className="text-xl font-black text-white tracking-tight">Activité Récente</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Historique en temps réel des actions Super Admin et inscriptions</p>
               </div>
 
@@ -461,11 +439,11 @@ export default function AdminCockpitPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-800/60 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                    <th className="pb-3 px-3">Customer</th>
-                    <th className="pb-3 px-3">Status / Action</th>
-                    <th className="pb-3 px-3">Order Number</th>
-                    <th className="pb-3 px-3">Retained</th>
-                    <th className="pb-3 px-3 text-right">Amount</th>
+                    <th className="pb-3 px-3">Entreprise / Client</th>
+                    <th className="pb-3 px-3">Statut / Action</th>
+                    <th className="pb-3 px-3">N° Référence</th>
+                    <th className="pb-3 px-3">Horodatage</th>
+                    <th className="pb-3 px-3 text-right">Montant</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/40 text-xs">
@@ -490,7 +468,7 @@ export default function AdminCockpitPage() {
                       <td className="py-4 px-3 font-semibold">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-slate-900 border border-slate-800 text-slate-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                          {act.action || act.details || 'New Customer'}
+                          {act.action || act.details || 'Nouveau Client'}
                         </span>
                       </td>
 
