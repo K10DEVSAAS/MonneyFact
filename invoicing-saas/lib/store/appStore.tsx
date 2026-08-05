@@ -37,6 +37,8 @@ interface AppStoreType {
   updateOrganization: (orgData: Partial<Organization>) => void;
   initializeZeroAccount: (companyName: string, email: string, plan?: PlanType) => void;
   purgeAllDatabaseRecords: () => void;
+  addCompanyNotif: (title: string, message: string, type?: AppNotification['type']) => void;
+  addAdminNotif: (title: string, message: string, type?: AppNotification['type']) => void;
   markCompanyNotifAsRead: (id: string) => void;
   markAllCompanyNotifsAsRead: () => void;
   deleteCompanyNotif: (id: string) => void;
@@ -500,6 +502,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateOrganization,
         initializeZeroAccount,
         purgeAllDatabaseRecords,
+        addCompanyNotif,
+        addAdminNotif,
         markCompanyNotifAsRead,
         markAllCompanyNotifsAsRead,
         deleteCompanyNotif,

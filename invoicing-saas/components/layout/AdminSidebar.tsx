@@ -124,11 +124,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) =
             </p>
             <div className="space-y-1.5">
               <Link
-                href="/admin/logs"
-                className="group flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/60 transition-all"
+                href="/admin/settings"
+                className={`group flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all ${
+                  pathname === '/admin/settings'
+                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <Settings className="w-4 h-4 text-slate-400 group-hover:text-indigo-400" />
+                  <Settings className="w-4 h-4 group-hover:text-indigo-400" />
                   <span>Configuration Système</span>
                 </div>
               </Link>
