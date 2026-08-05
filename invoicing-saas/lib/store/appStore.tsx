@@ -6,6 +6,7 @@ import { mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
 import { supabase } from '../supabase/client';
 import { PLAN_PRICES } from '../services/subscriptionService';
+import { dbService } from '../services/dbService';
 
 const DEFAULT_ORG_UUID = 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
 
@@ -191,7 +192,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const addCompanyNotif = (title: string, message: string, type: AppNotification['type'] = 'info') => {
+  const addCompanyNotif = async (title: string, message: string, type: AppNotification['type'] = 'info') => {
     const notif: AppNotification = {
       id: `cnotif-${Date.now()}`,
       title,
@@ -201,6 +202,13 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createdAt: new Date().toISOString(),
     };
     saveCompanyNotifs([notif, ...companyNotifications]);
+    try {
+      if (organization.id) {
+        await dbService.createCompanyNotification(organization.id, title, message, type);
+      }
+    } catch (e) {
+      console.warn('Supabase DB notification save error:', e);
+    }
   };
 
   const addAdminNotif = (title: string, message: string, type: AppNotification['type'] = 'info') => {
