@@ -28,6 +28,36 @@ export const dbService = {
     }
   },
 
+  async deleteOrganizationCascade(orgId: string, email?: string, name?: string): Promise<boolean> {
+    try {
+      // 1. Delete all child records in Supabase (invoices, clients, notifications)
+      if (orgId) {
+        await supabase.from('invoices').delete().eq('organization_id', orgId);
+        await supabase.from('clients').delete().eq('organization_id', orgId);
+        await supabase.from('notifications').delete().eq('organization_id', orgId);
+      }
+      if (email) {
+        await supabase.from('invoices').delete().eq('client_email', email);
+      }
+
+      // 2. Delete organization from Supabase
+      if (orgId && /^[0-9a-f-]{36}$/i.test(orgId)) {
+        await supabase.from('organizations').delete().eq('id', orgId);
+      }
+      if (email) {
+        await supabase.from('organizations').delete().eq('email', email);
+      }
+      if (name) {
+        await supabase.from('organizations').delete().eq('name', name);
+      }
+
+      return true;
+    } catch (e) {
+      console.error('Erreur suppression organisation Supabase:', e);
+      return false;
+    }
+  },
+
   async getAllRegisteredCompanies(): Promise<any[]> {
     try {
       const { data, error } = await supabase

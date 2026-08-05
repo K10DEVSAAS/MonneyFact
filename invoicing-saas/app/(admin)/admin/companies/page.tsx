@@ -224,12 +224,9 @@ export default function CompaniesAdminPage() {
         }
       }
 
-      // 3. Database Atomic Delete Execution in Supabase
+      // 3. Database Atomic Delete Execution in Supabase (Cascading)
       try {
-        await supabase.from('organizations').delete().or(`id.eq.${compId},name.eq.${compName}`);
-        if (compEmail) {
-          await supabase.from('invoices').delete().eq('client_email', compEmail);
-        }
+        await dbService.deleteOrganizationCascade(compId, compEmail, compName);
       } catch (dbErr) {
         console.warn('Supabase cascade deletion warning:', dbErr);
       }
@@ -288,6 +285,37 @@ export default function CompaniesAdminPage() {
             Superviser, consulter la fiche détaillée et supprimer définitivement les entreprises enregistrées.
           </p>
         </div>
+
+        {/* Global Reset Purge Button */}
+        {displayList.length > 0 && (
+          <button
+            onClick={async () => {
+              if (
+                confirm(
+                  "Êtes-vous sûr de vouloir SUPPRIMER TOUTES LES ENTREPRISES de la base de données Supabase ?\n\nCette action remettra toutes les statistiques du Super Admin à 0 FCFA et 0 entreprise sur TOUS vos appareils."
+                )
+              ) {
+                try {
+                  for (const comp of displayList) {
+                    await dbService.deleteOrganizationCascade(comp.id, comp.ownerEmail, comp.name);
+                  }
+                  await supabase.from('organizations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                  setLiveCompanies([]);
+                  localStorage.setItem('monneyfact_companies_list', JSON.stringify([]));
+                  localStorage.setItem('monneyfact_deleted_companies', JSON.stringify([]));
+                  alert("Toutes les entreprises ont été supprimées de la base de données. Les statistiques sont désormais à zéro.");
+                } catch (err) {
+                  console.error(err);
+                  alert("Erreur lors de la réinitialisation.");
+                }
+              }
+            }}
+            className="px-4 py-2.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-black rounded-2xl transition-all flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Purger / Remettre à Zéro toutes les Entreprises</span>
+          </button>
+        )}
       </div>
 
       {/* Filter and Search Controls Bar */}
@@ -712,13 +740,13 @@ export default function CompaniesAdminPage() {
             {/* Confirmation Typing Field */}
             <div className="space-y-2">
               <label className="text-xs font-extrabold text-slate-300">
-                Saisissez le nom exact <strong className="text-white font-mono">&quot;{deleteModal.company.name}&quot;</strong> pour confirmer :
+                Saisissez le nom <strong className="text-white font-mono">&quot;{deleteModal.company.name}&quot;</strong> ou le mot <strong className="text-rose-400 font-mono">&quot;SUPPRIMER&quot;</strong> pour confirmer :
               </label>
               <input
                 type="text"
                 value={deleteModal.confirmText}
                 onChange={(e) => setDeleteModal((prev) => ({ ...prev, confirmText: e.target.value }))}
-                placeholder={deleteModal.company.name}
+                placeholder="Entrez le nom ou SUPPRIMER..."
                 className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-mono text-white focus:outline-none focus:border-rose-500"
               />
             </div>
@@ -734,7 +762,12 @@ export default function CompaniesAdminPage() {
               </button>
               <button
                 type="button"
-                disabled={deleteModal.confirmText.trim() !== deleteModal.company.name || deleteModal.isDeleting}
+                disabled={
+                  !(
+                    deleteModal.confirmText.trim().toLowerCase() === deleteModal.company.name.trim().toLowerCase() ||
+                    deleteModal.confirmText.trim().toUpperCase() === 'SUPPRIMER'
+                  ) || deleteModal.isDeleting
+                }
                 onClick={executeAtomicCompanyDeletion}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black rounded-2xl shadow-lg shadow-rose-600/30 flex items-center gap-2 transition-all"
               >

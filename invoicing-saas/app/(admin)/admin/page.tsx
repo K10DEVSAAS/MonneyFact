@@ -135,12 +135,12 @@ export default function AdminCockpitPage() {
     };
   }, [registeredCompanies]);
 
-  const displayList = liveCompanies.length > 0 ? liveCompanies : registeredCompanies;
+  const displayList = liveCompanies;
 
   const totalInvoicedPlatform = displayList.reduce((sum, c) => sum + (c.totalInvoiced || 0), 0);
   const totalMRR = displayList.reduce((sum, c) => sum + (c.monthlySubscription !== undefined ? c.monthlySubscription : 5000), 0);
   const activeCount = displayList.filter((c) => c.status === 'active').length;
-  const retentionRate = displayList.length > 0 ? Math.round((activeCount / displayList.length) * 10000) / 100 : 100;
+  const retentionRate = displayList.length > 0 ? Math.round((activeCount / displayList.length) * 10000) / 100 : 0;
 
   // Monthly Growth Chart Data (French Month Names)
   const monthlyData = [

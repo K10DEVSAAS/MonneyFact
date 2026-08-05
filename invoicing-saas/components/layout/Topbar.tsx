@@ -179,7 +179,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Rechercher une facture, un client, un montant..."
+              placeholder={isAdmin ? "Rechercher une entreprise, abonnement, journal..." : "Rechercher une facture, un client, un montant..."}
               className="w-full pl-10 pr-4 py-2 text-xs bg-slate-100 border border-transparent rounded-2xl focus:bg-white focus:border-slate-300 focus:outline-none transition-all text-slate-900 placeholder:text-slate-400 font-medium"
             />
           </div>
@@ -187,14 +187,16 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Right Section: Notification Drawer Trigger + Date + Quick Actions */}
         <div className="flex items-center gap-3">
-          {/* Quick Create Invoice CTA */}
-          <Link
-            href="/invoices/new"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouvelle Facture</span>
-          </Link>
+          {/* Quick Create Invoice CTA (Hidden for Super Admin) */}
+          {!isAdmin && (
+            <Link
+              href="/invoices/new"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nouvelle Facture</span>
+            </Link>
+          )}
 
           {/* Date Indicator */}
           <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-medium">
