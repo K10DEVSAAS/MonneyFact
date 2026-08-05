@@ -1,3 +1,22 @@
+export interface CompanyCollaborator {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: 'Actif' | 'Invitation Envoyée' | 'Inactif';
+  createdAt: string;
+}
+
+export interface CompanySubsidiary {
+  id: string;
+  name: string;
+  type: string;
+  city: string;
+  managerName: string;
+  phone?: string;
+  status: 'actif' | 'inactif';
+}
+
 export interface RegisteredCompany {
   id: string;
   name: string;
@@ -9,6 +28,10 @@ export interface RegisteredCompany {
   registeredAt: string;
   totalInvoiced: number; // Volume facturé sur MonneyFact
   monthlySubscription: number; // En FCFA
+  subCompaniesCount?: number;
+  collaboratorsCount?: number;
+  collaborators?: CompanyCollaborator[];
+  subsidiaries?: CompanySubsidiary[];
 }
 
 export interface AdminDashboardStats {

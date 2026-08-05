@@ -12,6 +12,10 @@ import {
   X,
   Crown,
   LayoutDashboard,
+  Sparkles,
+  Users,
+  Settings,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
@@ -29,113 +33,124 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) =
   const countCompanies = registeredCompanies.length;
 
   const navigation = [
-    { name: 'Cockpit Global', href: '/admin', icon: LayoutDashboard },
-    { name: 'Entreprises Inscrites', href: '/admin/companies', icon: Building2, badge: `${countCompanies}` },
+    { name: 'Cockpit Overview', href: '/admin', icon: LayoutDashboard },
+    { name: 'Gestion Entreprises', href: '/admin/companies', icon: Building2, badge: countCompanies > 0 ? `${countCompanies}` : undefined },
     { name: 'Abonnements & MRR', href: '/admin/subscriptions', icon: CreditCard },
-    { name: 'Sécurité & Logs', href: '/admin/logs', icon: Activity },
+    { name: 'Historique & Sécurité', href: '/admin/logs', icon: Activity },
   ];
 
   return (
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-zinc-950/70 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-zinc-950 text-zinc-300 flex flex-col border-r border-orange-900/30 transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0B0F17] text-slate-300 flex flex-col border-r border-slate-800/60 shadow-2xl transition-transform duration-300 ease-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Branding Header */}
-        <div className="p-5 flex items-center justify-between border-b border-orange-900/20 bg-zinc-950">
+        {/* Branding Header inspired by Profitize */}
+        <div className="p-6 flex items-center justify-between border-b border-slate-800/40">
           <Link href="/admin" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-600/30 group-hover:scale-105 transition-transform font-bold">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 group-hover:scale-105 transition-all">
               <Crown className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-lg text-white tracking-tight">MonneyFact</span>
+                <span className="font-black text-xl text-white tracking-tight font-sans">MonneyFact</span>
               </div>
-              <p className="text-[11px] text-orange-400 font-bold tracking-wider uppercase">Super Admin</p>
+              <p className="text-[10px] text-indigo-400 font-extrabold tracking-widest uppercase flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-indigo-400" />
+                Super Admin
+              </p>
             </div>
           </Link>
           <button
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-lg lg:hidden"
+            className="p-2 text-slate-400 hover:text-white rounded-xl lg:hidden hover:bg-slate-800/50 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Super Admin Status Banner */}
-        <div className="px-4 py-3 border-b border-zinc-800/60">
-          <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs flex items-center gap-2.5">
-            <ShieldAlert className="w-4 h-4 text-orange-400 shrink-0" />
-            <div className="min-w-0">
-              <p className="font-bold text-orange-300 truncate">Fondateur MonneyFact</p>
-              <p className="text-[10px] text-orange-400/80 truncate">
-                {countCompanies} entreprise(s) cliente(s)
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Navigation Section */}
+        <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
+          <div>
+            <p className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-3">
+              Supervision Platform
+            </p>
+            <div className="space-y-1.5">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
+                const Icon = item.icon;
 
-        {/* Navigation Menu */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <div className="px-3 pb-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Supervision SaaS</p>
-          </div>
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => onClose()}
-                className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-zinc-400 group-hover:text-orange-400'}`} />
-                  <span>{item.name}</span>
-                </div>
-                {item.badge && (
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-300'
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => onClose()}
+                    className={`group relative flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/25'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
                     }`}
                   >
-                    {item.badge}
-                  </span>
-                )}
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
+                      <span>{item.name}</span>
+                    </div>
+                    {item.badge && (
+                      <span
+                        className={`text-[10px] px-2.5 py-0.5 rounded-full font-black ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-3">
+              Système & Support
+            </p>
+            <div className="space-y-1.5">
+              <Link
+                href="/admin/logs"
+                className="group flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/60 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="w-4 h-4 text-slate-400 group-hover:text-indigo-400" />
+                  <span>Configuration Système</span>
+                </div>
               </Link>
-            );
-          })}
+            </div>
+          </div>
         </nav>
 
-        {/* Footer Profile */}
-        <div className="p-3 border-t border-zinc-800 bg-zinc-950">
-          <div className="flex items-center justify-between p-2 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-orange-600 text-white font-bold text-xs flex items-center justify-center">
+        {/* Footer Profile Pill */}
+        <div className="p-4 border-t border-slate-800/40 bg-[#0B0F17]">
+          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/60 border border-slate-800/60">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-extrabold text-xs flex items-center justify-center shadow-md shrink-0">
                 SA
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">Fondateur MonneyFact</p>
-                <p className="text-[10px] text-zinc-400 truncate">admin@monneyfact.ci</p>
+                <p className="text-xs font-extrabold text-white truncate">Super Admin</p>
+                <p className="text-[10px] text-slate-400 truncate">admin@monneyfact.ci</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="p-1.5 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors"
+              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors shrink-0"
               title="Déconnexion"
             >
               <LogOut className="w-4 h-4" />

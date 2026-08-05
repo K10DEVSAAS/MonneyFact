@@ -30,7 +30,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex">
+    <div className="min-h-screen bg-[#07090E] text-slate-100 flex font-sans">
       {/* Super Admin Dedicated Sidebar */}
       <AdminSidebar
         isOpen={isMobileSidebarOpen}
