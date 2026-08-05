@@ -362,6 +362,28 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           u.companyName = updated.name;
           localStorage.setItem('monneyfact_active_user', JSON.stringify(u));
         }
+
+        // Sync in registered companies list
+        const savedList = localStorage.getItem('monneyfact_companies_list');
+        let currentList: RegisteredCompany[] = savedList ? JSON.parse(savedList) : registeredCompanies;
+        let modified = false;
+        currentList = currentList.map((c) => {
+          if (c.id === updated.id || (c.ownerEmail && c.ownerEmail.toLowerCase() === email)) {
+            modified = true;
+            return {
+              ...c,
+              name: updated.name || c.name,
+              ownerName: updated.name || c.ownerName,
+              plan: updated.plan || c.plan,
+            };
+          }
+          return c;
+        });
+
+        if (modified) {
+          setRegisteredCompanies(currentList);
+          localStorage.setItem('monneyfact_companies_list', JSON.stringify(currentList));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -380,7 +402,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       return updated;
     });
-    addCompanyNotif('Profil Mis à Jour', 'Les informations officielles de votre entreprise ont été mises à jour.', 'info');
+    addCompanyNotif('Profil Mis à Jour', `Les informations de ${orgData.name || organization.name} ont été enregistrées.`, 'info');
   };
 
   const initializeZeroAccount = (

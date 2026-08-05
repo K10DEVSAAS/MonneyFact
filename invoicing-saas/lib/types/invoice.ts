@@ -119,7 +119,9 @@ export interface Organization {
   phone: string;
   logoUrl?: string;
   taxId?: string; // Numéro Compte Contribuable (NNE/NCC)
-  plan?: PlanType; // Formule d'abonnement SaaS (Découverte 0 FCFA, Pro 5000 FCFA, Business 15000 FCFA)
+  defaultTaxRate?: number; // Taux de TVA par défaut (ex: 18 ou 24)
+  currency?: string; // Devise (ex: FCFA)
+  plan?: PlanType; // Formule d'abonnement SaaS (Basique, Pro)
   status?: 'active' | 'expired' | 'suspended';
   activatedAt?: string;
   expiresAt?: string;

@@ -37,6 +37,23 @@ export default function SettingsPage() {
 
   const [saved, setSaved] = useState(false);
 
+  React.useEffect(() => {
+    setOrg({
+      name: organization.name || '',
+      address: organization.address || '',
+      phone: organization.phone || '',
+      taxId: organization.taxId || '',
+      currency: organization.currency || 'FCFA',
+      defaultTaxRate: organization.defaultTaxRate !== undefined ? organization.defaultTaxRate : 18,
+      mobileMoneyPhone: organization.phone || '+225 07 00 00 00 00',
+      cinetpaySiteId: CINETPAY_DEFAULT_CONFIG.siteId,
+      cinetpayApiKey: CINETPAY_DEFAULT_CONFIG.apiKey,
+    });
+    if (organization.plan) {
+      setCurrentPlan(organization.plan);
+    }
+  }, [organization]);
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -107,6 +124,8 @@ export default function SettingsPage() {
       address: org.address,
       phone: org.phone,
       taxId: org.taxId,
+      defaultTaxRate: org.defaultTaxRate,
+      currency: org.currency,
       plan: currentPlan,
     });
 
