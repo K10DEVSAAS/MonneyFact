@@ -59,10 +59,21 @@ export default function InvoicesPage() {
     }
 
     try {
-      // 1. Define Excel / CSV Headers
-      const headers = ['N° Facture', 'Client', 'Email Client', 'Date Émission', 'Échéance', 'Montant HT (FCFA)', 'TVA 18% (FCFA)', 'Total TTC (FCFA)', 'Statut'];
+      // 1. Define Excel / CSV Headers with structured financial columns
+      const headers = [
+        'N° Facture',
+        'Client / Entreprise',
+        'Email Client',
+        'Date Émission',
+        'Date Échéance',
+        'Montant HT (FCFA)',
+        'TVA (FCFA)',
+        'Total TTC (FCFA)',
+        'Statut du Règlement',
+        'Lien de Consultation PDF / Pay'
+      ];
 
-      // 2. Generate CSV data rows formatted for Microsoft Excel with UTF-8 BOM
+      // 2. Generate CSV data rows formatted for Microsoft Excel
       const rows = invoices.map((inv) => [
         `"${inv.invoiceNumber}"`,
         `"${(inv.clientName || '').replace(/"/g, '""')}"`,
@@ -72,10 +83,29 @@ export default function InvoicesPage() {
         inv.subtotal || 0,
         inv.taxAmount || 0,
         inv.total || 0,
-        `"${(inv.status || '').toUpperCase()}"`,
+        `"${(inv.status === 'paid' ? 'PAYÉE' : inv.status === 'sent' ? 'ENVOYÉE' : inv.status === 'overdue' ? 'EN RETARD' : 'BROUILLON')}"`,
+        `"https://monney-fact.vercel.app/pay/${inv.paymentToken || inv.id}"`
       ]);
 
-      const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+      // 3. Compute Totals Summary Row
+      const totalHT = invoices.reduce((sum, i) => sum + (i.subtotal || 0), 0);
+      const totalTVA = invoices.reduce((sum, i) => sum + (i.taxAmount || 0), 0);
+      const totalTTC = invoices.reduce((sum, i) => sum + (i.total || 0), 0);
+
+      const totalsRow = [
+        '"TOTAL GÉNÉRAL"',
+        `"${invoices.length} Factures au total"`,
+        '""',
+        '""',
+        '""',
+        totalHT,
+        totalTVA,
+        totalTTC,
+        '""',
+        '""'
+      ];
+
+      const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';')), totalsRow.join(';')].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

@@ -12,12 +12,16 @@ function AcceptInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams?.get('token') || '';
+  const expectedNameParam = searchParams?.get('name') || searchParams?.get('nom') || '';
+  const expectedEmailParam = searchParams?.get('email') || '';
+  const expectedMinsParam = Number(searchParams?.get('duration') || searchParams?.get('time') || 15);
+
   const { loginAsCollaborator } = useAuth();
   const { organization } = useAppStore();
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [timeMinutes, setTimeMinutes] = useState(30);
+  const [fullName, setFullName] = useState(expectedNameParam);
+  const [email, setEmail] = useState(expectedEmailParam);
+  const [timeMinutes, setTimeMinutes] = useState(expectedMinsParam || 15);
   const [accepted, setAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -28,12 +32,23 @@ function AcceptInviteContent() {
     setErrorMessage('');
 
     if (isBasique) {
-      setErrorMessage("Cette invitation n'est plus valide car l'entreprise est passée en formule 1 000 FCFA/mois (la collaboration est réservée au Plan Pro 5 000 FCFA/mois).");
+      setErrorMessage("Cette invitation est suspendue : l'entreprise hôte est actuellement sous la Formule Basique (1 000 FCFA). La fonction collaborateur requiert le Plan Pro (5 000 FCFA/mois).");
       return;
     }
 
     if (!fullName.trim() || !email.trim()) {
       setErrorMessage('Veuillez renseigner votre nom complet et votre adresse e-mail.');
+      return;
+    }
+
+    // Matching validation if parameters were specified in invite link
+    if (expectedNameParam && fullName.trim().toLowerCase() !== expectedNameParam.trim().toLowerCase()) {
+      setErrorMessage(`Le nom saisi ("${fullName}") ne correspond pas exactement au nom figurant sur l'invitation émise par l'entreprise ("${expectedNameParam}").`);
+      return;
+    }
+
+    if (expectedEmailParam && email.trim().toLowerCase() !== expectedEmailParam.trim().toLowerCase()) {
+      setErrorMessage(`L'email saisi ("${email}") ne correspond pas à l'adresse autorisée ("${expectedEmailParam}").`);
       return;
     }
 
