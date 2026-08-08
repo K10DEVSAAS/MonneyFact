@@ -132,20 +132,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* User Profile Footer */}
         <div className="p-3 border-t border-zinc-800 bg-zinc-950">
-          <div className="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-orange-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
                 {user?.name?.substring(0, 2).toUpperCase() || 'US'}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-white truncate">{user?.name || 'Utilisateur'}</p>
-                <p className="text-[11px] text-zinc-400 truncate">{user?.email || 'contact@monneyfact.ci'}</p>
+                <p className="text-[10px] text-zinc-400 truncate">
+                  {user?.isCollaborator ? `Collaborateur (${user.memberRole || 'Membre'})` : (user?.email || 'contact@monneyfact.ci')}
+                </p>
               </div>
             </div>
             <button
-              onClick={logout}
-              title="Déconnexion"
-              className="p-1.5 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors"
+              onClick={() => {
+                if (user?.isCollaborator) {
+                  if (confirm("Voulez-vous terminer votre session collaborateur et quitter le tableau de bord ?")) {
+                    logout();
+                  }
+                } else {
+                  logout();
+                }
+              }}
+              title={user?.isCollaborator ? "Terminer la session collaborateur" : "Déconnexion"}
+              className="p-1.5 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>

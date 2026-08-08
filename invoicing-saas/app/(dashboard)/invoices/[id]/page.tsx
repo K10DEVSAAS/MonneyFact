@@ -18,11 +18,17 @@ import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA, formatDate } from '@/lib/utils/formatters';
 import { useRouter } from 'next/navigation';
 
+import { usePermissions } from '@/lib/hooks/usePermissions';
+
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { invoices, clients, updateInvoiceStatus, organization } = useAppStore();
+  const { hasPermission } = usePermissions();
   const [paying, setPaying] = useState(false);
+
+  const canSendInvoices = hasPermission('send_invoices');
+  const canManagePayments = hasPermission('manage_payments');
 
   const invoice = invoices.find((inv) => inv.id === id);
 
@@ -59,6 +65,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   // WHATSAPP SHARE GENERATOR WITH REGISTERED CLIENT PHONE NUMBER IN INTERNATIONAL FORMAT (POINT 10)
   const handleWhatsAppShare = () => {
+    if (!canSendInvoices) {
+      alert("Accès refusé : Vous n'avez pas l'autorisation d'envoyer des factures.");
+      return;
+    }
     // 1. Retrieve registered client phone number
     let rawPhone = '';
     const registeredClient = clients.find(
@@ -86,6 +96,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   // EMAIL SHARE GENERATOR WITH PUBLIC PAYMENT LINK
   const handleEmailShare = () => {
+    if (!canSendInvoices) {
+      alert("Accès refusé : Vous n'avez pas l'autorisation d'envoyer des factures.");
+      return;
+    }
     const subject = `Facture ${invoice.invoiceNumber} - ${organization.name}`;
     const body = `Bonjour ${invoice.clientName},\n\nVeuillez trouver ci-joint les détails de votre facture ${invoice.invoiceNumber} d'un montant de ${formatFCFA(invoice.total)}.\n\nLien de règlement en ligne Wave / Mobile Money :\n${paymentUrl}\n\nMerci de votre confiance.\n\n${organization.name}`;
     const mailtoUrl = `mailto:${invoice.clientEmail || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

@@ -6,11 +6,15 @@ import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, CheckCircle2, Shie
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
 
+import { usePermissions } from '@/lib/hooks/usePermissions';
+
 export default function ClientsPage() {
   const { clients, addClient, deleteClient, organization, globalSearchQuery } = useAppStore();
+  const { hasPermission } = usePermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  const canManageClients = hasPermission('manage_clients');
   const isBasique = organization.plan === 'Basique';
   const basiqueLimitReached = isBasique && clients.length >= 10;
 
@@ -33,6 +37,10 @@ export default function ClientsPage() {
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageClients) {
+      alert("Accès refusé : Vous n'avez pas l'autorisation de gérer le répertoire des clients.");
+      return;
+    }
     if (!formData.name.trim()) {
       alert('Veuillez saisir le nom du client.');
       return;
@@ -89,24 +97,26 @@ export default function ClientsPage() {
           </p>
         </div>
 
-        {basiqueLimitReached ? (
-          <button
-            onClick={() =>
-              alert('Limite de 10 clients atteinte pour le Plan Basique. Passez au Plan Pro (5 000 FCFA/m) dans les Paramètres pour ajouter des clients en illimité !')
-            }
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouveau Client (Limite 10/10)</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouveau Client</span>
-          </button>
+        {canManageClients && (
+          basiqueLimitReached ? (
+            <button
+              onClick={() =>
+                alert('Limite de 10 clients atteinte pour le Plan Basique. Passez au Plan Pro (5 000 FCFA/m) dans les Paramètres pour ajouter des clients en illimité !')
+              }
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nouveau Client (Limite 10/10)</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nouveau Client</span>
+            </button>
+          )
         )}
       </div>
 

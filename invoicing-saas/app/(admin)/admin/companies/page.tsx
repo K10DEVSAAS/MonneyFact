@@ -32,7 +32,7 @@ import { supabase } from '@/lib/supabase/client';
 import { RegisteredCompany, CompanyCollaborator, CompanySubsidiary } from '@/lib/data/mockAdminData';
 
 export default function CompaniesAdminPage() {
-  const { registeredCompanies, globalSearchQuery } = useAppStore();
+  const { registeredCompanies, globalSearchQuery, purgeAllCompanies } = useAppStore();
   const [liveCompanies, setLiveCompanies] = useState<RegisteredCompany[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -293,18 +293,13 @@ export default function CompaniesAdminPage() {
             onClick={async () => {
               if (
                 confirm(
-                  "Êtes-vous sûr de vouloir SUPPRIMER TOUTES LES ENTREPRISES de la base de données Supabase ?\n\nCette action remettra toutes les statistiques du Super Admin à 0 FCFA et 0 entreprise sur TOUS vos appareils."
+                  "Êtes-vous sûr de vouloir SUPPRIMER TOUTES LES ENTREPRISES de la base de données ?\n\nCette action supprimera l'ensemble des entreprises, sous-entreprises et utilisateurs inscrits."
                 )
               ) {
                 try {
-                  for (const comp of displayList) {
-                    await dbService.deleteOrganizationCascade(comp.id, comp.ownerEmail, comp.name);
-                  }
-                  await supabase.from('organizations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                  await purgeAllCompanies();
                   setLiveCompanies([]);
-                  localStorage.setItem('monneyfact_companies_list', JSON.stringify([]));
-                  localStorage.setItem('monneyfact_deleted_companies', JSON.stringify([]));
-                  alert("Toutes les entreprises ont été supprimées de la base de données. Les statistiques sont désormais à zéro.");
+                  alert("Toutes les entreprises ont été supprimées de la base de données avec succès.");
                 } catch (err) {
                   console.error(err);
                   alert("Erreur lors de la réinitialisation.");

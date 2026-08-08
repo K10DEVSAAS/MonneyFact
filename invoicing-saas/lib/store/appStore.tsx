@@ -39,6 +39,7 @@ interface AppStoreType {
   updateOrganization: (orgData: Partial<Organization>) => void;
   initializeZeroAccount: (companyName: string, email: string, plan?: PlanType) => void;
   purgeAllDatabaseRecords: () => void;
+  purgeAllCompanies: () => Promise<void>;
   addCompanyNotif: (title: string, message: string, type?: AppNotification['type']) => void;
   addAdminNotif: (title: string, message: string, type?: AppNotification['type']) => void;
   markCompanyNotifAsRead: (id: string) => void;
@@ -74,17 +75,34 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         let userEmail = '';
         let currentOrg = mockOrganization;
 
-        if (savedUser) {
-          const u = JSON.parse(savedUser);
-          userEmail = u.email ? u.email.toLowerCase() : '';
-          currentOrg = {
-            ...mockOrganization,
-            id: u.id || mockOrganization.id,
-            name: u.companyName || u.name || mockOrganization.name,
-            email: u.email || mockOrganization.email,
-            plan: u.plan || 'Pro',
-          };
+        if (!savedUser) {
+          if (isSubscribed) {
+            setInvoices([]);
+            setClients([]);
+            setCompanyNotifications([]);
+            setOrganization({
+              ...mockOrganization,
+              id: 'guest-org',
+              name: 'Mon Entreprise',
+              email: 'guest@monneyfact.ci',
+            });
+          }
+          return;
         }
+
+        const u = JSON.parse(savedUser);
+        if (u.isCollaborator && u.hostCompanyEmail) {
+          userEmail = u.hostCompanyEmail.toLowerCase();
+        } else {
+          userEmail = u.email ? u.email.toLowerCase() : '';
+        }
+        currentOrg = {
+          ...mockOrganization,
+          id: u.id || mockOrganization.id,
+          name: u.companyName || u.name || mockOrganization.name,
+          email: userEmail || u.email || mockOrganization.email,
+          plan: u.plan || 'Pro',
+        };
 
         // Try restoring user-specific organization data
         if (userEmail) {
@@ -92,14 +110,37 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const savedOrg = localStorage.getItem(userOrgKey);
           if (savedOrg) {
             currentOrg = JSON.parse(savedOrg);
+          } else {
+            const savedCompList = localStorage.getItem('monneyfact_companies_list');
+            if (savedCompList) {
+              const compList: any[] = JSON.parse(savedCompList);
+              const found = compList.find(
+                (c) => (c.ownerEmail && c.ownerEmail.toLowerCase() === userEmail) ||
+                       (c.email && c.email.toLowerCase() === userEmail)
+              );
+              if (found) {
+                currentOrg = {
+                  ...mockOrganization,
+                  id: found.id || mockOrganization.id,
+                  name: found.name || found.ownerName || mockOrganization.name,
+                  email: userEmail,
+                  plan: found.plan || 'Pro',
+                };
+              }
+            }
           }
         }
 
         if (isSubscribed) setOrganization(currentOrg);
 
         // Load isolated user invoices
-        const invoiceKey = userEmail ? `monneyfact_invoices_${userEmail}` : 'monneyfact_invoices_guest';
-        const savedInvoices = localStorage.getItem(invoiceKey);
+        let invoiceKey = userEmail ? `monneyfact_invoices_${userEmail}` : 'monneyfact_invoices_guest';
+        let savedInvoices = localStorage.getItem(invoiceKey);
+        if ((!savedInvoices || savedInvoices === '[]') && userEmail) {
+          const altInvoices = localStorage.getItem(`monneyfact_invoices_${userEmail.trim().toLowerCase()}`);
+          if (altInvoices && altInvoices !== '[]') savedInvoices = altInvoices;
+        }
+
         if (savedInvoices && isSubscribed) {
           setInvoices(JSON.parse(savedInvoices));
         } else if (isSubscribed) {
@@ -107,8 +148,13 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         // Load isolated user clients
-        const clientKey = userEmail ? `monneyfact_clients_${userEmail}` : 'monneyfact_clients_guest';
-        const savedClients = localStorage.getItem(clientKey);
+        let clientKey = userEmail ? `monneyfact_clients_${userEmail}` : 'monneyfact_clients_guest';
+        let savedClients = localStorage.getItem(clientKey);
+        if ((!savedClients || savedClients === '[]') && userEmail) {
+          const altClients = localStorage.getItem(`monneyfact_clients_${userEmail.trim().toLowerCase()}`);
+          if (altClients && altClients !== '[]') savedClients = altClients;
+        }
+
         if (savedClients && isSubscribed) {
           setClients(JSON.parse(savedClients));
         } else if (isSubscribed) {
@@ -181,8 +227,23 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     loadData();
 
+    const handleAuthEvent = () => {
+      if (isSubscribed) {
+        loadData();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('monneyfact_auth_change', handleAuthEvent);
+      window.addEventListener('storage', handleAuthEvent);
+    }
+
     return () => {
       isSubscribed = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('monneyfact_auth_change', handleAuthEvent);
+        window.removeEventListener('storage', handleAuthEvent);
+      }
     };
   }, []);
 
@@ -196,6 +257,18 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const getUserEmail = () => {
+    try {
+      const savedUser = typeof window !== 'undefined' ? localStorage.getItem('monneyfact_active_user') : null;
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u.isCollaborator && u.hostCompanyEmail) {
+          return u.hostCompanyEmail.toLowerCase();
+        }
+        if (u.email) return u.email.toLowerCase();
+      }
+    } catch (e) {
+      console.error(e);
+    }
     return organization.email ? organization.email.toLowerCase() : 'guest';
   };
 
@@ -550,6 +623,42 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const purgeAllCompanies = async () => {
+    setRegisteredCompanies([]);
+    setInvoices([]);
+    setClients([]);
+    setCompanyNotifications([]);
+    try {
+      localStorage.setItem('monneyfact_companies_list', JSON.stringify([]));
+      localStorage.setItem('monneyfact_user_accounts', JSON.stringify([]));
+      localStorage.setItem('monneyfact_deleted_companies', JSON.stringify([]));
+
+      if (typeof window !== 'undefined') {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (key.startsWith('monneyfact_org_') ||
+              key.startsWith('monneyfact_invoices_') ||
+              key.startsWith('monneyfact_clients_') ||
+              key.startsWith('monneyfact_notifs_') ||
+              key.startsWith('monneyfact_rate_limit_') ||
+              key.startsWith('monneyfact_subsidiaries_') ||
+              key.startsWith('monneyfact_team_'))
+          ) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      }
+
+      await dbService.deleteAllOrganizationsCascade();
+    } catch (e) {
+      console.error('Erreur purgeAllCompanies:', e);
+    }
+  };
+
   const markCompanyNotifAsRead = (id: string) => {
     saveCompanyNotifs(companyNotifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
@@ -600,6 +709,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateOrganization,
         initializeZeroAccount,
         purgeAllDatabaseRecords,
+        purgeAllCompanies,
         addCompanyNotif,
         addAdminNotif,
         markCompanyNotifAsRead,

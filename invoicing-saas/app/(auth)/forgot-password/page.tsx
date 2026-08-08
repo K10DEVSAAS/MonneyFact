@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, ArrowRight, CheckCircle2, RefreshCw, ShieldAlert, KeyRound, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth/authContext';
 import { Logo } from '@/components/ui/Logo';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { updateUserPassword } = useAuth();
   const [step, setStep] = useState<'email' | 'otp' | 'new-password' | 'success'>('email');
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
@@ -134,6 +136,7 @@ export default function ForgotPasswordPage() {
     setErrorMessage('');
 
     try {
+      await updateUserPassword(email, newPassword);
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });

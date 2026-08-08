@@ -23,6 +23,8 @@ import { emailService } from '@/lib/services/emailService';
 import { RoleType, PermissionKey, TeamMember, Subsidiary } from '@/lib/types/invoice';
 import { formatDate } from '@/lib/utils/formatters';
 
+import { usePermissions } from '@/lib/hooks/usePermissions';
+
 interface AuditLogEntry {
   id: string;
   userEmail: string;
@@ -34,6 +36,8 @@ interface AuditLogEntry {
 
 export default function TeamPage() {
   const { organization } = useAppStore();
+  const { hasPermission } = usePermissions();
+  const canManageTeam = hasPermission('manage_team');
   const isProPlan = organization.plan === 'Pro';
   const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
 
@@ -155,14 +159,53 @@ export default function TeamPage() {
     };
     const expiresAtText = expiryLabels[inviteExpiration];
 
+    const durationMinutesMap: Record<string, number> = {
+      '10m': 10,
+      '30m': 30,
+      '1h': 60,
+      '24h': 1440,
+    };
+    const durationMins = durationMinutesMap[inviteExpiration] || 30;
+    const memberName = newEmail.split('@')[0];
+    const hostCompanyEmail = organization.email || userEmail;
+
+    // Store invitation details locally for instant retrieval when accepting
+    const invitePayload = {
+      token,
+      email: newEmail.trim(),
+      memberName,
+      role: newRole,
+      hostCompanyName: organization.name,
+      hostCompanyEmail,
+      permissions: selectedPermissions,
+      accessScope,
+      allowedSubsidiaryIds: accessScope === 'limited' ? selectedSubIds : [],
+      durationMins,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(`monneyfact_invite_${token}`, JSON.stringify(invitePayload));
+      localStorage.setItem(`monneyfact_invite_latest_${newEmail.trim().toLowerCase()}`, JSON.stringify(invitePayload));
+    } catch (e) {
+      console.error(e);
+    }
+
     // 1. Dispatch Email via Centralized Email Service
     const emailResult = await emailService.sendInvitationEmail({
       toEmail: newEmail.trim(),
+      memberName,
       companyName: organization.name,
+      hostCompanyEmail,
       role: newRole,
       token,
       expiresAt: expiresAtText,
+      durationMins,
+      permissions: selectedPermissions,
+      accessScope,
+      allowedSubsidiaryIds: accessScope === 'limited' ? selectedSubIds : [],
     });
+
+    const fullInviteUrl = emailResult.inviteUrl;
 
     // 2. Add member with fine permissions & scoping
     const createdMember: TeamMember = {
@@ -193,7 +236,7 @@ export default function TeamPage() {
     setInviteModal({
       open: true,
       email: newEmail.trim(),
-      inviteUrl: emailResult.inviteUrl,
+      inviteUrl: fullInviteUrl,
       expiryText: expiresAtText,
     });
     setNewEmail('');
@@ -214,8 +257,24 @@ export default function TeamPage() {
         </p>
       </div>
 
-      {/* LOCK HERO BANNER IF NOT BUSINESS PLAN */}
-      {!isProPlan ? (
+      {/* LOCK HERO BANNER IF NOT BUSINESS PLAN OR IF COLLABORATOR WITHOUT MANAGE_TEAM PERMISSION */}
+      {!canManageTeam ? (
+        <div className="p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-6 text-center relative overflow-hidden">
+          <div className="w-16 h-16 rounded-3xl bg-rose-500/20 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto">
+            <Lock className="w-8 h-8 text-rose-500" />
+          </div>
+
+          <div className="space-y-2 max-w-lg mx-auto">
+            <span className="px-3 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-full">
+              🔒 Autorisation Manquante
+            </span>
+            <h3 className="text-2xl font-black text-white">Gestion de l&apos;Équipe Restreinte</h3>
+            <p className="text-xs text-zinc-400">
+              Votre compte collaborateur ne dispose pas de la permission &quot;Gérer les Collaborateurs&quot;. Seul l&apos;administrateur de l&apos;entreprise peut inviter des membres ou modifier les droits d&apos;accès.
+            </p>
+          </div>
+        </div>
+      ) : !isProPlan ? (
         <div className="p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-6 text-center relative overflow-hidden">
           <div className="w-16 h-16 rounded-3xl bg-orange-600/20 border border-orange-500/30 text-orange-400 flex items-center justify-center mx-auto">
             <Lock className="w-8 h-8 text-orange-500" />

@@ -23,9 +23,15 @@ import { formatFCFA } from '@/lib/utils/formatters';
 import { SignatureCanvas } from '@/components/invoices/SignatureCanvas';
 import { Subsidiary } from '@/lib/types/invoice';
 
+import { usePermissions } from '@/lib/hooks/usePermissions';
+import { Lock } from 'lucide-react';
+
 export default function NewInvoicePage() {
   const router = useRouter();
   const { clients, invoices, addInvoice, organization } = useAppStore();
+  const { hasPermission } = usePermissions();
+
+  const canCreateInvoices = hasPermission('create_invoices');
 
   const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState('');
@@ -48,6 +54,28 @@ export default function NewInvoicePage() {
       console.error(e);
     }
   }, [organization.id]);
+
+  if (!canCreateInvoices) {
+    return (
+      <div className="p-12 bg-white rounded-3xl border border-slate-200 shadow-xl text-center space-y-4 max-w-lg mx-auto my-12 text-slate-900">
+        <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-extrabold text-slate-900">Accès Refusé : Création de Facture</h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Votre rôle collaborateur ne dispose pas de la permission &quot;Créer des Factures & Devis&quot;. Contactez l&apos;administrateur de l&apos;entreprise pour obtenir cette autorisation.
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/invoices"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md"
+          >
+            <span>Retour à la liste des factures</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientName, setClientName] = useState('');

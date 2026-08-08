@@ -16,12 +16,36 @@ function AcceptInviteContent() {
   const expectedEmailParam = searchParams?.get('email') || '';
   const expectedMinsParam = Number(searchParams?.get('duration') || searchParams?.get('time') || 15);
 
+  const hostNameParam = searchParams?.get('hostName') || '';
+  const hostEmailParam = searchParams?.get('hostEmail') || '';
+  const roleParam = searchParams?.get('role') || '';
+  const permsParam = searchParams?.get('perms') || '';
+  const scopeParam = searchParams?.get('scope') || '';
+  const subsParam = searchParams?.get('subs') || '';
+
   const { loginAsCollaborator } = useAuth();
   const { organization } = useAppStore();
 
-  const [fullName, setFullName] = useState(expectedNameParam);
-  const [email, setEmail] = useState(expectedEmailParam);
-  const [timeMinutes, setTimeMinutes] = useState(expectedMinsParam || 15);
+  // Retrieve local invitation payload if available
+  let storedInv: any = null;
+  try {
+    if (token && typeof window !== 'undefined') {
+      const invStr = localStorage.getItem(`monneyfact_invite_${token}`);
+      if (invStr) storedInv = JSON.parse(invStr);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  const hostName = hostNameParam || storedInv?.hostCompanyName || organization.name;
+  const hostEmail = hostEmailParam || storedInv?.hostCompanyEmail || organization.email || '';
+  const expectedName = expectedNameParam || storedInv?.memberName || storedInv?.name || '';
+  const expectedEmail = expectedEmailParam || storedInv?.email || '';
+  const initialDuration = expectedMinsParam || storedInv?.durationMins || 30;
+
+  const [fullName, setFullName] = useState(expectedName);
+  const [email, setEmail] = useState(expectedEmail);
+  const [timeMinutes, setTimeMinutes] = useState(initialDuration);
   const [accepted, setAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -41,20 +65,37 @@ function AcceptInviteContent() {
       return;
     }
 
-    // Matching validation if parameters were specified in invite link
-    if (expectedNameParam && fullName.trim().toLowerCase() !== expectedNameParam.trim().toLowerCase()) {
-      setErrorMessage(`Le nom saisi ("${fullName}") ne correspond pas exactement au nom figurant sur l'invitation émise par l'entreprise ("${expectedNameParam}").`);
+    // STRICT VALIDATION: Require entered name and email to match the invitation
+    if (expectedName && fullName.trim().toLowerCase() !== expectedName.trim().toLowerCase()) {
+      setErrorMessage(`Accès refusé : Le nom saisi ("${fullName}") ne correspond pas exactement au nom configuré sur l'invitation par l'entreprise hôte ("${expectedName}").`);
       return;
     }
 
-    if (expectedEmailParam && email.trim().toLowerCase() !== expectedEmailParam.trim().toLowerCase()) {
-      setErrorMessage(`L'email saisi ("${email}") ne correspond pas à l'adresse autorisée ("${expectedEmailParam}").`);
+    if (expectedEmail && email.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()) {
+      setErrorMessage(`Accès refusé : L'adresse email saisie ("${email}") ne correspond pas à l'email autorisé sur l'invitation ("${expectedEmail}").`);
       return;
     }
+
+    // Lookup invitation permissions & scope from payload or query params
+    const permissions = storedInv?.permissions || (permsParam ? permsParam.split(',') as any : undefined);
+    const accessScope = storedInv?.accessScope || (scopeParam as any) || undefined;
+    const allowedSubsidiaryIds = storedInv?.allowedSubsidiaryIds || (subsParam ? subsParam.split(',') : undefined);
+    const memberRole = storedInv?.role || (roleParam as any) || undefined;
 
     setAccepted(true);
     setTimeout(() => {
-      loginAsCollaborator(fullName.trim(), email.trim(), organization.name, organization.plan || 'Pro', timeMinutes);
+      loginAsCollaborator(
+        fullName.trim(),
+        email.trim(),
+        hostName,
+        organization.plan || 'Pro',
+        timeMinutes,
+        hostEmail,
+        permissions,
+        accessScope,
+        allowedSubsidiaryIds,
+        memberRole
+      );
     }, 1200);
   };
 
@@ -71,7 +112,7 @@ function AcceptInviteContent() {
           </div>
           <h3 className="text-xl font-bold text-white">Session Collaborateur Activée ! 🎉</h3>
           <p className="text-xs text-zinc-300">
-            Bienvenue <strong className="text-white">{fullName}</strong> ! Vous êtes connecté sous l&apos;entreprise <strong className="text-orange-400">{organization.name}</strong> pour une durée de <strong className="text-emerald-400">{timeMinutes} minutes</strong>. Redirection...
+            Bienvenue <strong className="text-white">{fullName}</strong> ! Vous êtes connecté sous l&apos;entreprise <strong className="text-orange-400">{hostName}</strong> pour une durée de <strong className="text-emerald-400">{timeMinutes} minutes</strong>. Redirection...
           </p>
         </div>
       ) : (
@@ -83,7 +124,7 @@ function AcceptInviteContent() {
           <div className="space-y-2">
             <h2 className="text-xl font-bold text-white tracking-tight">Accès Collaborateur Temporaire</h2>
             <p className="text-xs text-zinc-400">
-              Invitation émise par l&apos;entreprise <strong className="text-orange-400">{organization.name}</strong>.
+              Invitation émise par l&apos;entreprise <strong className="text-orange-400">{hostName}</strong>.
             </p>
           </div>
 

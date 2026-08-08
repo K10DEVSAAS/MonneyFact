@@ -14,11 +14,15 @@ interface TopbarProps {
   title?: string;
 }
 
+import { usePermissions } from '@/lib/hooks/usePermissions';
+
 export const Topbar: React.FC<TopbarProps> = ({
   onOpenMobileSidebar,
   title = 'Tableau de bord',
 }) => {
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canCreateInvoices = hasPermission('create_invoices');
   const isAdmin = user?.role === 'super_admin';
   const { organization, unreadCompanyNotifCount, unreadAdminNotifCount, activeSubsidiaryId, setActiveSubsidiaryId, globalSearchQuery, setGlobalSearchQuery } = useAppStore();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -189,8 +193,8 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Right Section: Notification Drawer Trigger + Date + Quick Actions */}
         <div className="flex items-center gap-3">
-          {/* Quick Create Invoice CTA (Hidden for Super Admin) */}
-          {!isAdmin && (
+          {/* Quick Create Invoice CTA (Hidden for Super Admin & users without permission) */}
+          {!isAdmin && canCreateInvoices && (
             <Link
               href="/invoices/new"
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"

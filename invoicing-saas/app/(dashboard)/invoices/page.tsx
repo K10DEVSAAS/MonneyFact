@@ -7,11 +7,16 @@ import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA, formatDate } from '@/lib/utils/formatters';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { subscriptionService } from '@/lib/services/subscriptionService';
+import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function InvoicesPage() {
   const { invoices, organization, globalSearchQuery } = useAppStore();
+  const { hasPermission } = usePermissions();
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const canCreateInvoices = hasPermission('create_invoices');
+  const canSendInvoices = hasPermission('send_invoices');
 
   // Lock Modal State for Pro-only Features
   const [lockModal, setLockModal] = useState<{ open: boolean; title: string; feature: string }>({
@@ -122,6 +127,10 @@ export default function InvoicesPage() {
   };
 
   const handleSmsReminder = (invoiceNumber: string, clientName: string) => {
+    if (!canSendInvoices) {
+      alert("Accès refusé : Vous n'avez pas l'autorisation d'envoyer des factures ou relances.");
+      return;
+    }
     if (!isPro) {
       setLockModal({
         open: true,
@@ -174,25 +183,27 @@ export default function InvoicesPage() {
             {!isPro && <Sparkles className="w-3.5 h-3.5 text-amber-400" />}
           </button>
 
-          {/* New Invoice Button */}
-          {basiqueLimitReached ? (
-            <button
-              onClick={() =>
-                alert('Limite de 10 factures/mois atteinte pour le Plan Basique. Passez au Plan Pro (5.000 FCFA/m) dans les Paramètres pour facturer en illimité !')
-              }
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Créer une Facture (Limite 10/10)</span>
-            </button>
-          ) : (
-            <Link
-              href="/invoices/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Créer une Facture</span>
-            </Link>
+          {/* New Invoice Button - Only rendered if user has create_invoices permission */}
+          {canCreateInvoices && (
+            basiqueLimitReached ? (
+              <button
+                onClick={() =>
+                  alert('Limite de 10 factures/mois atteinte pour le Plan Basique. Passez au Plan Pro (5.000 FCFA/m) dans les Paramètres pour facturer en illimité !')
+                }
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Créer une Facture (Limite 10/10)</span>
+              </button>
+            ) : (
+              <Link
+                href="/invoices/new"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Créer une Facture</span>
+              </Link>
+            )
           )}
         </div>
       </div>

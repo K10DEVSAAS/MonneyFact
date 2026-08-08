@@ -104,7 +104,7 @@ function SignupFormContent() {
       if (result.success) {
         // Initialize account at zero and set active paid plan
         initializeZeroAccount(companyName, email, selectedPlan);
-        registerClient(companyName, email, selectedPlan);
+        await registerClient(companyName, email, selectedPlan, password);
         setPaymentModalOpen(false);
       } else {
         alert('Erreur lors du paiement simulé. Veuillez réessayer.');

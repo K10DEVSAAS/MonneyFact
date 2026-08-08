@@ -12,9 +12,14 @@ export interface InvitationEmailPayload {
   toEmail: string;
   memberName?: string;
   companyName: string;
+  hostCompanyEmail?: string;
   role: string;
   token: string;
   expiresAt: string;
+  durationMins?: number;
+  permissions?: string[];
+  accessScope?: 'global' | 'limited';
+  allowedSubsidiaryIds?: string[];
 }
 
 export interface OtpEmailPayload {
@@ -25,9 +30,23 @@ export interface OtpEmailPayload {
 export const emailService = {
   // 1. Send Team Collaborator Invitation Email
   async sendInvitationEmail(payload: InvitationEmailPayload): Promise<{ success: boolean; message: string; inviteUrl: string }> {
-    const inviteUrl = typeof window !== 'undefined'
-      ? `${window.location.origin}/auth/accept-invite?token=${payload.token}`
-      : `https://monney-fact.vercel.app/auth/accept-invite?token=${payload.token}`;
+    const baseUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/accept-invite`
+      : `https://monney-fact.vercel.app/auth/accept-invite`;
+
+    const params = new URLSearchParams();
+    params.set('token', payload.token);
+    if (payload.toEmail) params.set('email', payload.toEmail);
+    if (payload.memberName) params.set('name', payload.memberName);
+    if (payload.companyName) params.set('hostName', payload.companyName);
+    if (payload.hostCompanyEmail) params.set('hostEmail', payload.hostCompanyEmail);
+    if (payload.role) params.set('role', payload.role);
+    if (payload.durationMins) params.set('duration', payload.durationMins.toString());
+    if (payload.permissions && payload.permissions.length > 0) params.set('perms', payload.permissions.join(','));
+    if (payload.accessScope) params.set('scope', payload.accessScope);
+    if (payload.allowedSubsidiaryIds && payload.allowedSubsidiaryIds.length > 0) params.set('subs', payload.allowedSubsidiaryIds.join(','));
+
+    const inviteUrl = `${baseUrl}?${params.toString()}`;
 
     const subject = `Invitation à rejoindre l'entreprise ${payload.companyName} sur MonneyFact`;
 

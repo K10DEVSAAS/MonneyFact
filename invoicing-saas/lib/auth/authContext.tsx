@@ -3,7 +3,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../supabase/client';
-import { PlanType } from '../types/invoice';
+import { PlanType, RoleType, PermissionKey } from '../types/invoice';
+import {
+  hashPassword,
+  verifyPassword,
+  checkRateLimit,
+  recordFailedAttempt,
+  clearRateLimit,
+} from './passwordUtils';
 
 export type UserRole = 'guest' | 'client' | 'super_admin';
 
@@ -17,8 +24,22 @@ export interface UserSession {
   avatarUrl?: string;
   isCollaborator?: boolean;
   hostCompanyName?: string;
+  hostCompanyEmail?: string;
+  memberRole?: RoleType;
+  permissions?: PermissionKey[];
+  accessScope?: 'global' | 'limited';
+  allowedSubsidiaryIds?: string[];
   collaboratorTimeMinutes?: number;
   sessionEndTime?: number;
+}
+
+export interface StoredUserAccount {
+  email: string;
+  companyName: string;
+  plan: PlanType;
+  hash: string;
+  salt: string;
+  createdAt: string;
 }
 
 interface AuthContextType {
@@ -26,10 +47,22 @@ interface AuthContextType {
   role: UserRole;
   isAuthenticated: boolean;
   isLoadingSession: boolean;
-  loginAsClient: (email?: string) => { success: boolean; error?: string };
+  loginAsClient: (email?: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   loginAsAdmin: () => void;
-  loginAsCollaborator: (name: string, email: string, hostCompanyName: string, plan: PlanType, timeMinutes?: number) => void;
-  registerClient: (companyName: string, email: string, plan: PlanType) => void;
+  loginAsCollaborator: (
+    name: string,
+    email: string,
+    hostCompanyName: string,
+    plan: PlanType,
+    timeMinutes?: number,
+    hostCompanyEmail?: string,
+    permissions?: PermissionKey[],
+    accessScope?: 'global' | 'limited',
+    allowedSubsidiaryIds?: string[],
+    memberRole?: RoleType
+  ) => void;
+  registerClient: (companyName: string, email: string, plan: PlanType, password?: string) => Promise<void>;
+  updateUserPassword: (email: string, newPassword: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
   isAccountDeleted: (email: string) => boolean;
@@ -61,7 +94,7 @@ function checkAccountDeleted(email?: string): boolean {
   return false;
 }
 
-// Helper function to resolve stored plan for an email (Default to 'Basique' or 'Pro')
+// Helper function to resolve stored plan for an email
 function resolveUserPlan(email?: string): PlanType {
   if (!email) return 'Basique';
   if (email.toLowerCase() === 'admin@monneyfact.ci') return 'Pro';
@@ -83,6 +116,33 @@ function resolveUserPlan(email?: string): PlanType {
     console.error(e);
   }
   return 'Pro';
+}
+
+// Helper to get stored account credentials record
+function getStoredAccount(email: string): StoredUserAccount | null {
+  try {
+    const accountsStr = localStorage.getItem('monneyfact_user_accounts');
+    if (accountsStr) {
+      const accounts: StoredUserAccount[] = JSON.parse(accountsStr);
+      const found = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+      if (found) return found;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return null;
+}
+
+// Helper to save or update stored account
+function saveStoredAccount(account: StoredUserAccount): void {
+  try {
+    const accountsStr = localStorage.getItem('monneyfact_user_accounts');
+    const accounts: StoredUserAccount[] = accountsStr ? JSON.parse(accountsStr) : [];
+    const filtered = accounts.filter((a) => a.email.toLowerCase() !== account.email.toLowerCase());
+    localStorage.setItem('monneyfact_user_accounts', JSON.stringify([account, ...filtered]));
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -199,11 +259,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const loginAsClient = (email?: string): { success: boolean; error?: string } => {
+  const loginAsClient = async (email?: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     const normalizedEmail = (email || '').toLowerCase().trim();
 
     if (!normalizedEmail) {
       return { success: false, error: 'Veuillez saisir votre adresse email.' };
+    }
+
+    if (!password || !password.trim()) {
+      return { success: false, error: 'Veuillez saisir votre mot de passe.' };
+    }
+
+    // 1. Check Rate Limiting (Brute-Force Protection)
+    const rateLimit = checkRateLimit(normalizedEmail);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Accès temporairement bloqué suite à de trop nombreuses tentatives échouées. Veuillez réessayer dans ${rateLimit.remainingSeconds} secondes.`,
+      };
     }
 
     if (checkAccountDeleted(normalizedEmail)) {
@@ -215,51 +288,129 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
 
-    // STRICT SECURITY CHECK: Reject un-registered accounts
-    if (!isSuperAdmin) {
-      let isRegistered = false;
-
-      try {
-        const savedStr = localStorage.getItem('monneyfact_companies_list');
-        if (savedStr) {
-          const companies: any[] = JSON.parse(savedStr);
-          isRegistered = companies.some(
-            (c) =>
-              (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
-              (c.email && c.email.toLowerCase() === normalizedEmail)
-          );
-        }
-
-        if (!isRegistered) {
-          const userOrg = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
-          if (userOrg) isRegistered = true;
-        }
-      } catch (e) {
-        console.error(e);
+    // 2. DATABASE EXISTENCE CHECK: Reject non-existent accounts
+    let isRegistered = false;
+    try {
+      const savedStr = localStorage.getItem('monneyfact_companies_list');
+      if (savedStr) {
+        const companies: any[] = JSON.parse(savedStr);
+        isRegistered = companies.some(
+          (c) =>
+            (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
+            (c.email && c.email.toLowerCase() === normalizedEmail)
+        );
       }
 
       if (!isRegistered) {
+        const userOrg = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
+        if (userOrg) isRegistered = true;
+      }
+
+      if (!isRegistered && getStoredAccount(normalizedEmail)) {
+        isRegistered = true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (!isSuperAdmin && !isRegistered) {
+      recordFailedAttempt(normalizedEmail);
+      return {
+        success: false,
+        error: "Accès refusé : Aucun compte n'est enregistré avec cet e-mail dans notre base de données. Veuillez créer votre compte entreprise via le formulaire d'inscription.",
+      };
+    }
+
+    // 3. PASSWORD VERIFICATION
+    let storedAccount = getStoredAccount(normalizedEmail);
+
+    // Initial setup fallback for accounts registered before password hashing update or admin demo
+    if (!storedAccount && (isSuperAdmin || isRegistered)) {
+      const defaultPass = isSuperAdmin ? 'Admin1234' : password;
+      const initialHash = await hashPassword(defaultPass);
+      storedAccount = {
+        email: normalizedEmail,
+        companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : normalizedEmail.split('@')[0],
+        plan: resolveUserPlan(normalizedEmail),
+        hash: initialHash.hash,
+        salt: initialHash.salt,
+        createdAt: new Date().toISOString(),
+      };
+      saveStoredAccount(storedAccount);
+    }
+
+    if (storedAccount) {
+      const isValidPassword = await verifyPassword(password, storedAccount.hash, storedAccount.salt);
+      if (!isValidPassword) {
+        const failedResult = recordFailedAttempt(normalizedEmail);
+        const attemptsLeftText = failedResult.attemptsLeft !== undefined && failedResult.attemptsLeft > 0
+          ? ` (${failedResult.attemptsLeft} essai(s) restant(s))`
+          : '';
         return {
           success: false,
-          error: "Accès refusé : Ce compte n'existe pas ou n'est pas encore inscrit sur MonneyFact. Veuillez créer votre compte entreprise via le formulaire d'inscription.",
+          error: `Identifiants invalides : Le mot de passe saisi est incorrect${attemptsLeftText}.`,
         };
       }
     }
 
-    const actualPlan = resolveUserPlan(email);
+    // Attempt Supabase auth login in background if available
+    try {
+      await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: password,
+      });
+    } catch (sbErr) {
+      console.warn('Supabase login notice:', sbErr);
+    }
+
+    // Successful login -> Clear rate limits
+    clearRateLimit(normalizedEmail);
+
+    const actualPlan = resolveUserPlan(normalizedEmail);
+    let foundCompanyName = isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (normalizedEmail ? normalizedEmail.split('@')[0] : 'Mon Entreprise');
+    let foundUserId = isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`;
+
+    if (!isSuperAdmin) {
+      try {
+        const savedOrgStr = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
+        if (savedOrgStr) {
+          const savedOrg = JSON.parse(savedOrgStr);
+          if (savedOrg.name) foundCompanyName = savedOrg.name;
+          if (savedOrg.id) foundUserId = savedOrg.id;
+        } else {
+          const savedListStr = localStorage.getItem('monneyfact_companies_list');
+          if (savedListStr) {
+            const list: any[] = JSON.parse(savedListStr);
+            const found = list.find((c) =>
+              (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
+              (c.email && c.email.toLowerCase() === normalizedEmail)
+            );
+            if (found) {
+              foundCompanyName = found.name || found.ownerName || foundCompanyName;
+              if (found.id) foundUserId = found.id;
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
     const loggedInUser: UserSession = {
-      id: isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`,
-      name: isSuperAdmin ? 'Fondateur MonneyFact' : (email ? email.split('@')[0] : 'Entreprise Cliente'),
-      email: email || 'contact@entreprise.ci',
+      id: foundUserId,
+      name: isSuperAdmin ? 'Fondateur MonneyFact' : foundCompanyName,
+      email: normalizedEmail,
       role: isSuperAdmin ? 'super_admin' : 'client',
-      companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (email ? email.split('@')[0] : 'Mon Entreprise'),
+      companyName: foundCompanyName,
       plan: actualPlan,
     };
 
     setUser(loggedInUser);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(loggedInUser));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('monneyfact_auth_change'));
+    }
 
     if (isSuperAdmin) {
       router.push('/admin');
@@ -274,6 +425,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(DEMO_ADMIN);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(DEMO_ADMIN));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('monneyfact_auth_change'));
+    }
     router.push('/admin');
   };
 
@@ -282,7 +436,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string,
     hostCompanyName: string,
     plan: PlanType,
-    timeMinutes: number = 30
+    timeMinutes: number = 30,
+    hostCompanyEmail?: string,
+    permissions?: PermissionKey[],
+    accessScope?: 'global' | 'limited',
+    allowedSubsidiaryIds?: string[],
+    memberRole?: RoleType
   ) => {
     const sessionEndTime = Date.now() + timeMinutes * 60 * 1000;
     const colUser: UserSession = {
@@ -292,6 +451,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: 'client',
       companyName: hostCompanyName,
       hostCompanyName,
+      hostCompanyEmail,
+      memberRole,
+      permissions: permissions || ['create_invoices', 'send_invoices', 'manage_clients', 'view_analytics', 'manage_payments'],
+      accessScope: accessScope || 'global',
+      allowedSubsidiaryIds: allowedSubsidiaryIds || [],
       plan,
       isCollaborator: true,
       collaboratorTimeMinutes: timeMinutes,
@@ -301,26 +465,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(colUser);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(colUser));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('monneyfact_auth_change'));
+    }
     router.push('/dashboard');
   };
 
-  const registerClient = (companyName: string, email: string, plan: PlanType) => {
+  const registerClient = async (companyName: string, email: string, plan: PlanType, password?: string) => {
+    const cleanEmail = email.toLowerCase().trim();
+
     // If re-registering after deletion, remove from deleted list
     try {
       const deletedStr = localStorage.getItem('monneyfact_deleted_companies');
       if (deletedStr) {
         const deleted: string[] = JSON.parse(deletedStr);
-        const updated = deleted.filter((e) => e.toLowerCase() !== email.toLowerCase());
+        const updated = deleted.filter((e) => e.toLowerCase() !== cleanEmail);
         localStorage.setItem('monneyfact_deleted_companies', JSON.stringify(updated));
       }
     } catch (e) {
       console.error(e);
     }
 
+    // Hash password and store in user credentials database
+    if (password && password.trim()) {
+      const hashRes = await hashPassword(password);
+      const newAccount: StoredUserAccount = {
+        email: cleanEmail,
+        companyName,
+        plan,
+        hash: hashRes.hash,
+        salt: hashRes.salt,
+        createdAt: new Date().toISOString(),
+      };
+      saveStoredAccount(newAccount);
+    }
+
+    // Try Supabase auth registration
+    if (password && password.trim()) {
+      try {
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+          options: {
+            data: { company_name: companyName },
+          },
+        });
+      } catch (sbErr) {
+        console.warn('Supabase signup notice:', sbErr);
+      }
+    }
+
     const newUser: UserSession = {
       id: `usr-${Date.now()}`,
       name: companyName,
-      email,
+      email: cleanEmail,
       role: 'client',
       companyName,
       plan,
@@ -329,6 +527,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(newUser));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('monneyfact_auth_change'));
+    }
 
     try {
       const savedStr = localStorage.getItem('monneyfact_companies_list');
@@ -337,7 +538,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: `org-${Date.now()}`,
         name: companyName,
         ownerName: companyName,
-        ownerEmail: email,
+        ownerEmail: cleanEmail,
         city: 'Abidjan',
         plan: plan,
         status: 'active',
@@ -345,12 +546,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalInvoiced: 0,
         monthlySubscription: plan === 'Pro' ? 5000 : 1000,
       };
-      localStorage.setItem('monneyfact_companies_list', JSON.stringify([newCompany, ...companies.filter((c) => c.ownerEmail !== email)]));
+      localStorage.setItem('monneyfact_companies_list', JSON.stringify([newCompany, ...companies.filter((c) => c.ownerEmail !== cleanEmail)]));
     } catch (e) {
       console.error(e);
     }
 
     router.push('/dashboard');
+  };
+
+  const updateUserPassword = async (email: string, newPassword: string): Promise<boolean> => {
+    const cleanEmail = email.toLowerCase().trim();
+    if (!newPassword || newPassword.length < 6) return false;
+
+    try {
+      const hashRes = await hashPassword(newPassword);
+      const existingAccount = getStoredAccount(cleanEmail);
+      const updatedAccount: StoredUserAccount = {
+        email: cleanEmail,
+        companyName: existingAccount?.companyName || cleanEmail.split('@')[0],
+        plan: existingAccount?.plan || 'Pro',
+        hash: hashRes.hash,
+        salt: hashRes.salt,
+        createdAt: existingAccount?.createdAt || new Date().toISOString(),
+      };
+      saveStoredAccount(updatedAccount);
+      clearRateLimit(cleanEmail);
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   };
 
   const loginWithGoogle = async () => {
@@ -365,7 +590,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) {
       console.error('Erreur Google OAuth:', error.message);
-      loginAsClient('compte.google@gmail.com');
+      await loginAsClient('compte.google@gmail.com', 'GoogleOAuthFallbackPass123!');
     }
   };
 
@@ -373,6 +598,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setIsLoadingSession(false);
     localStorage.removeItem('monneyfact_active_user');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('monneyfact_auth_change'));
+    }
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -395,6 +623,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginAsAdmin,
         loginAsCollaborator,
         registerClient,
+        updateUserPassword,
         loginWithGoogle,
         logout,
         isAccountDeleted: checkAccountDeleted,
@@ -412,4 +641,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
 

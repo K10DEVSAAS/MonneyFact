@@ -11,8 +11,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCredentialsLogin = (e: React.FormEvent) => {
+  const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -21,9 +22,22 @@ export default function LoginPage() {
       return;
     }
 
-    const result = loginAsClient(email);
-    if (!result.success && result.error) {
-      setErrorMessage(result.error);
+    if (!password.trim()) {
+      setErrorMessage('Veuillez saisir votre mot de passe.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await loginAsClient(email, password);
+      if (!result.success && result.error) {
+        setErrorMessage(result.error);
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage('Une erreur de connexion est survenue. Veuillez réessayer.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -134,10 +148,17 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
           >
-            <span>Se connecter à mon espace</span>
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <span>Vérification de la sécurité...</span>
+            ) : (
+              <>
+                <span>Se connecter à mon espace</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 

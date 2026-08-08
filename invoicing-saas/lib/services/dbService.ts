@@ -58,6 +58,19 @@ export const dbService = {
     }
   },
 
+  async deleteAllOrganizationsCascade(): Promise<boolean> {
+    try {
+      await supabase.from('invoices').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('organizations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      return true;
+    } catch (e) {
+      console.error('Erreur suppression intégrale des entreprises Supabase:', e);
+      return false;
+    }
+  },
+
   async getAllRegisteredCompanies(): Promise<any[]> {
     try {
       const { data, error } = await supabase
