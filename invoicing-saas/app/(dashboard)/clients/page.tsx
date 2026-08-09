@@ -9,7 +9,7 @@ import { formatFCFA } from '@/lib/utils/formatters';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function ClientsPage() {
-  const { clients, addClient, deleteClient, organization, globalSearchQuery } = useAppStore();
+  const { clients, addClient, deleteClient, organization, globalSearchQuery, activeSubsidiaryId } = useAppStore();
   const { hasPermission } = usePermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -53,6 +53,7 @@ export default function ClientsPage() {
 
     addClient({
       organizationId: organization.id,
+      subsidiaryId: activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined,
       name: formData.name,
       email: formData.email || 'client@entreprise.ci',
       phone: formData.phone || '+225 07 00 00 00 00',
@@ -171,9 +172,20 @@ export default function ClientsPage() {
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">{client.name}</h3>
-                      <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded bg-slate-100">
-                        {client.city}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-semibold text-slate-500 px-2 py-0.5 rounded bg-slate-100">
+                          {client.city}
+                        </span>
+                        {client.subsidiaryId ? (
+                          <span className="text-[9px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-md">
+                            📍 Agence
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                            🏢 Siège Social
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button

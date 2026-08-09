@@ -100,6 +100,7 @@ export interface Client {
   id: string;
   organizationId: string;
   subsidiaryId?: string;
+  subsidiaryName?: string;
   name: string;
   email: string;
   phone: string;
