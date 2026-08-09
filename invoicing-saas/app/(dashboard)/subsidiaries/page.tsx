@@ -23,6 +23,8 @@ import {
   ArrowRight,
   Sparkles,
   Trash2,
+  ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { Subsidiary, SubsidiaryType } from '@/lib/types/invoice';
@@ -30,7 +32,7 @@ import { formatFCFA } from '@/lib/utils/formatters';
 
 export default function SubsidiariesPage() {
   const router = useRouter();
-  const { organization, invoices, setActiveSubsidiaryId, activeSubsidiaryId } = useAppStore();
+  const { organization, invoices, setActiveSubsidiaryId, activeSubsidiaryId, subsidiaries, addSubsidiary, deleteSubsidiary } = useAppStore();
   const isProPlan = organization.plan === 'Pro';
 
   const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
@@ -39,40 +41,46 @@ export default function SubsidiariesPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
+  // Security Delete Modal State
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    subId: string;
+    subName: string;
+    confirmText: string;
+    isSubmitting: boolean;
+  }>({
+    open: false,
+    subId: '',
+    subName: '',
+    confirmText: '',
+    isSubmitting: false,
+  });
 
-  useEffect(() => {
-    const savedStr = localStorage.getItem(`monneyfact_subsidiaries_${userEmail}`);
-    if (savedStr) {
-      try {
-        setSubsidiaries(JSON.parse(savedStr));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      setSubsidiaries([]);
-    }
-  }, [userEmail]);
-
-  const saveSubsidiaries = (list: Subsidiary[]) => {
-    setSubsidiaries(list);
-    try {
-      localStorage.setItem(`monneyfact_subsidiaries_${userEmail}`, JSON.stringify(list));
-    } catch (e) {
-      console.error(e);
-    }
+  const openDeleteModal = (id: string, name: string) => {
+    setDeleteModal({
+      open: true,
+      subId: id,
+      subName: name,
+      confirmText: '',
+      isSubmitting: false,
+    });
   };
 
-  // Delete Sub-Company Feature
-  const handleDeleteSubsidiary = (id: string, name: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer la sous-entreprise "${name}" ? Cette action retirera cet établissement.`)) {
-      const updated = subsidiaries.filter((s) => s.id !== id);
-      saveSubsidiaries(updated);
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (deleteModal.confirmText.trim().toUpperCase() !== 'SUPPRIMER') {
+      alert('Veuillez saisir exactement "SUPPRIMER" en majuscules pour valider.');
+      return;
+    }
 
-      // If active context was this subsidiary, reset to global / main company
-      if (activeSubsidiaryId === id) {
-        setActiveSubsidiaryId('global');
-      }
+    setDeleteModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      await deleteSubsidiary(deleteModal.subId);
+      setDeleteModal({ open: false, subId: '', subName: '', confirmText: '', isSubmitting: false });
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors de la suppression de la sous-entreprise.');
+      setDeleteModal((prev) => ({ ...prev, isSubmitting: false }));
     }
   };
 
@@ -95,12 +103,14 @@ export default function SubsidiariesPage() {
     taxId: '',
   });
 
-  const handleCreateBranch = (e: React.FormEvent) => {
+  const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    const created: Subsidiary = {
-      id: `sub-${Date.now()}`,
+    const validUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
+
+    await addSubsidiary({
+      id: validUuid,
       organizationId: organization.id,
       name: formData.name,
       type: formData.type,
@@ -115,10 +125,8 @@ export default function SubsidiariesPage() {
       totalInvoiced: 0,
       invoiceCount: 0,
       memberCount: 1,
-      createdAt: new Date().toISOString(),
-    };
+    });
 
-    saveSubsidiaries([created, ...subsidiaries]);
     setFormData({
       name: '',
       type: 'Agence Régionale',
@@ -275,7 +283,7 @@ export default function SubsidiariesPage() {
 
                         {/* Delete Sub-Company Button */}
                         <button
-                          onClick={() => handleDeleteSubsidiary(sub.id, sub.name)}
+                          onClick={() => openDeleteModal(sub.id, sub.name)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                           title="Supprimer la sous-entreprise"
                         >
@@ -458,6 +466,75 @@ export default function SubsidiariesPage() {
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Enregistrer la Sous-Entreprise</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Security Deletion Modal */}
+          {deleteModal.open && (
+            <div className="fixed inset-0 z-50 bg-zinc-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-fade-in text-slate-900 relative border border-rose-100">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModal({ open: false, subId: '', subName: '', confirmText: '', isSubmitting: false })}
+                  className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                    <ShieldAlert className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 leading-tight">Confirmation de Sécurité</h3>
+                    <p className="text-xs text-rose-600 font-bold mt-0.5">Suppression définitive d&apos;établissement</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 text-xs text-rose-950">
+                  <div className="flex items-center gap-2 font-black text-rose-700">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>⚠️ ATTENTION : ACTION DÉFINITIVE & IRRÉVERSIBLE !</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Si cette sous-entreprise (<strong>{deleteModal.subName}</strong>) est supprimée, <strong>il sera impossible de la retrouver</strong> ou de restaurer ses configurations et son historique d&apos;agence.
+                  </p>
+                </div>
+
+                <form onSubmit={handleConfirmDelete} className="space-y-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700 block">
+                      Pour confirmer, tapez <span className="font-black text-rose-600 select-all font-mono">SUPPRIMER</span> ci-dessous :
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Tapez SUPPRIMER"
+                      value={deleteModal.confirmText}
+                      onChange={(e) => setDeleteModal({ ...deleteModal, confirmText: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-rose-500 text-slate-900 font-mono font-bold uppercase tracking-wider"
+                    />
+                  </div>
+
+                  <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModal({ open: false, subId: '', subName: '', confirmText: '', isSubmitting: false })}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all"
+                    >
+                      Annuler / Conserver
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={deleteModal.confirmText.trim().toUpperCase() !== 'SUPPRIMER' || deleteModal.isSubmitting}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold rounded-xl shadow-md shadow-rose-600/20 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>{deleteModal.isSubmitting ? 'Suppression...' : 'Supprimer Définitivement'}</span>
                     </button>
                   </div>
                 </form>

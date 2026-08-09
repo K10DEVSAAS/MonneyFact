@@ -135,6 +135,8 @@ export const dbService = {
       return data.map((c) => ({
         id: c.id,
         organizationId: c.organization_id,
+        subsidiaryId: c.subsidiary_id || c.subsidiaryId || undefined,
+        subsidiaryName: c.subsidiary_name || c.subsidiaryName || undefined,
         name: c.name,
         email: c.email,
         phone: c.phone,
@@ -157,6 +159,8 @@ export const dbService = {
         .from('clients')
         .insert({
           organization_id: client.organizationId,
+          subsidiary_id: client.subsidiaryId || null,
+          subsidiary_name: client.subsidiaryName || null,
           name: client.name,
           email: client.email,
           phone: client.phone,
@@ -172,6 +176,8 @@ export const dbService = {
       return {
         id: data.id,
         organizationId: data.organization_id,
+        subsidiaryId: data.subsidiary_id || data.subsidiaryId || undefined,
+        subsidiaryName: data.subsidiary_name || data.subsidiaryName || undefined,
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -185,6 +191,110 @@ export const dbService = {
     } catch (e) {
       console.error(e);
       return null;
+    }
+  },
+
+  // --- SUBSIDIARIES ---
+  async getSubsidiaries(organizationId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('subsidiaries')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+
+      if (error || !data) return [];
+
+      return data.map((s) => ({
+        id: s.id,
+        organizationId: s.organization_id,
+        name: s.name,
+        type: s.type || 'Agence Régionale',
+        city: s.city || 'Abidjan',
+        address: s.address || '',
+        phone: s.phone || '',
+        email: s.email || '',
+        managerName: s.manager_name || '',
+        rccmNumber: s.rccm_number || '',
+        taxId: s.tax_id || '',
+        status: s.status || 'actif',
+        totalInvoiced: 0,
+        invoiceCount: 0,
+        memberCount: 1,
+        createdAt: s.created_at,
+      }));
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async createSubsidiary(sub: any): Promise<any | null> {
+    try {
+      const isValidUuid = sub.id && /^[0-9a-f-]{36}$/i.test(sub.id);
+      const insertPayload: any = {
+        organization_id: sub.organizationId,
+        name: sub.name,
+        type: sub.type || 'Agence Régionale',
+        city: sub.city || 'Abidjan',
+        address: sub.address || '',
+        phone: sub.phone || '',
+        email: sub.email || '',
+        manager_name: sub.managerName || '',
+        rccm_number: sub.rccmNumber || '',
+        tax_id: sub.taxId || '',
+        status: sub.status || 'actif',
+      };
+      if (isValidUuid) {
+        insertPayload.id = sub.id;
+      }
+
+      const { data, error } = await supabase
+        .from('subsidiaries')
+        .insert(insertPayload)
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        console.warn('Supabase createSubsidiary warning:', error);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        organizationId: data.organization_id,
+        name: data.name,
+        type: data.type,
+        city: data.city,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        managerName: data.manager_name,
+        rccmNumber: data.rccm_number,
+        taxId: data.tax_id,
+        status: data.status,
+        totalInvoiced: 0,
+        invoiceCount: 0,
+        memberCount: 1,
+        createdAt: data.created_at,
+      };
+    } catch (e) {
+      console.error('Supabase createSubsidiary error:', e);
+      return null;
+    }
+  },
+
+  async deleteSubsidiary(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('subsidiaries')
+        .delete()
+        .eq('id', id);
+
+      return !error;
+    } catch (e) {
+      console.error('Supabase deleteSubsidiary error:', e);
+      return false;
     }
   },
 
@@ -203,6 +313,8 @@ export const dbService = {
         id: inv.id,
         invoiceNumber: inv.invoice_number,
         organizationId: inv.organization_id,
+        subsidiaryId: inv.subsidiary_id || inv.subsidiaryId || undefined,
+        subsidiaryName: inv.subsidiary_name || inv.subsidiaryName || undefined,
         clientId: inv.client_id,
         clientName: inv.client_name,
         clientEmail: inv.client_email,

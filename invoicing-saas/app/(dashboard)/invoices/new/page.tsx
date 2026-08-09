@@ -28,39 +28,21 @@ import { Lock } from 'lucide-react';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, invoices, addInvoice, organization, activeSubsidiaryId } = useAppStore();
+  const { clients, invoices, addInvoice, organization, activeSubsidiaryId, subsidiaries } = useAppStore();
   const { hasPermission } = usePermissions();
 
   const canCreateInvoices = hasPermission('create_invoices');
   const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
 
-  const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
+  const subsidiariesList = (subsidiaries || []).filter(
+    (s) => !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
+  );
+
   const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState(
     activeSubsidiaryId !== 'global' ? activeSubsidiaryId : ''
   );
 
   const isProPlan = organization.plan === 'Pro';
-
-  useEffect(() => {
-    try {
-      let ownSubs: Subsidiary[] = [];
-      const userSubsStr = localStorage.getItem(`monneyfact_subsidiaries_${userEmail}`);
-      if (userSubsStr) {
-        ownSubs = JSON.parse(userSubsStr);
-      } else {
-        const saved = localStorage.getItem('monneyfact_subsidiaries_list');
-        if (saved) {
-          const allSubs: Subsidiary[] = JSON.parse(saved);
-          ownSubs = allSubs.filter(
-            (s) => s.organizationId === organization.id && !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
-          );
-        }
-      }
-      setSubsidiariesList(ownSubs);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [organization.id, userEmail]);
 
   if (!canCreateInvoices) {
     return (
@@ -166,12 +148,18 @@ export default function NewInvoicePage() {
       const seqNumber = (invoices.length + 1).toString().padStart(4, '0');
       const generatedNumber = `FAC-${currentYear}-${seqNumber}`;
 
-      const chosenSub = isProPlan ? subsidiariesList.find((s) => s.id === selectedSubsidiaryId) : undefined;
+      const subToUseId = isProPlan
+        ? (selectedSubsidiaryId || (activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined))
+        : undefined;
+
+      const chosenSub = subToUseId
+        ? subsidiariesList.find((s) => s.id === subToUseId)
+        : undefined;
 
       await addInvoice({
         invoiceNumber: generatedNumber,
         organizationId: organization.id,
-        subsidiaryId: isProPlan ? (selectedSubsidiaryId || undefined) : undefined,
+        subsidiaryId: subToUseId,
         subsidiaryName: chosenSub?.name || undefined,
         clientId: selectedClientId || `cli-temp-${Date.now()}`,
         clientName,

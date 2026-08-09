@@ -9,6 +9,8 @@ export async function POST(request: Request) {
     const {
       invoiceNumber,
       organizationId,
+      subsidiaryId,
+      subsidiaryName,
       clientName,
       clientEmail,
       status,
@@ -51,12 +53,16 @@ export async function POST(request: Request) {
       console.warn('[API INVOICE CREATE] Org upsert warning:', orgErr);
     }
 
-    // 2. Insert Invoice (Standard Insert Without Invalid ON CONFLICT)
+    const isValidSubUuid = subsidiaryId && /^[0-9a-f-]{36}$/i.test(subsidiaryId);
+
+    // 2. Insert Invoice (With Subsidiary ID & Name)
     const { data: insertedInvoice, error: invErr } = await supabase
       .from('invoices')
       .insert({
         invoice_number: invoiceNumber,
         organization_id: validOrgId,
+        subsidiary_id: isValidSubUuid ? subsidiaryId : null,
+        subsidiary_name: subsidiaryName || null,
         client_name: clientName,
         client_email: clientEmail || 'client@entreprise.ci',
         status: status || 'sent',

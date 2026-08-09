@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function DashboardPage() {
-  const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId } = useAppStore();
+  const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId, subsidiaries } = useAppStore();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -21,6 +21,8 @@ export default function DashboardPage() {
   const canViewAnalytics = hasPermission('view_analytics');
   const canCreateInvoices = hasPermission('create_invoices');
 
+  const activeSub = (subsidiaries || []).find((s) => s.id === activeSubsidiaryId);
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
       {/* Subsidiary Active Switch Banner */}
@@ -28,7 +30,9 @@ export default function DashboardPage() {
         <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl flex items-center justify-between gap-4 text-xs font-bold text-orange-950">
           <div className="flex items-center gap-2">
             <Building className="w-4 h-4 text-orange-600 shrink-0" />
-            <span>📍 Vous consultez l&apos;établissement spécifique (les chiffres et factures affichés concernent cette agence).</span>
+            <span>
+              📍 Vous consultez l&apos;établissement <strong>{activeSub?.name || 'Sous-Entreprise'}</strong> ({activeSub?.city || 'Agence'}). Les statistiques et factures ci-dessous concernent uniquement cette filiale.
+            </span>
           </div>
           <button
             onClick={() => setActiveSubsidiaryId('global')}
@@ -178,13 +182,7 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Invoices Table */}
-      <RecentInvoices
-        invoices={
-          activeSubsidiaryId === 'global'
-            ? invoices
-            : invoices.filter((i) => i.subsidiaryId === activeSubsidiaryId)
-        }
-      />
+      <RecentInvoices invoices={invoices} />
     </div>
   );
 }

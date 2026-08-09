@@ -34,11 +34,11 @@ export const RecentInvoices: React.FC<RecentInvoicesProps> = ({ invoices }) => {
   });
 
   const filterTabs: { id: string; label: string }[] = [
-    { id: 'all', label: 'Toutes (5)' },
-    { id: 'paid', label: 'Payées (2)' },
-    { id: 'sent', label: 'Envoyées (1)' },
-    { id: 'draft', label: 'Brouillons (1)' },
-    { id: 'overdue', label: 'En retard (1)' },
+    { id: 'all', label: `Toutes (${invoices.length})` },
+    { id: 'paid', label: `Payées (${invoices.filter((i) => i.status === 'paid').length})` },
+    { id: 'sent', label: `Envoyées (${invoices.filter((i) => i.status === 'sent').length})` },
+    { id: 'draft', label: `Brouillons (${invoices.filter((i) => i.status === 'draft').length})` },
+    { id: 'overdue', label: `En retard (${invoices.filter((i) => i.status === 'overdue').length})` },
   ];
 
   return (

@@ -24,38 +24,24 @@ export const Topbar: React.FC<TopbarProps> = ({
   const { hasPermission } = usePermissions();
   const canCreateInvoices = hasPermission('create_invoices');
   const isAdmin = user?.role === 'super_admin';
-  const { organization, unreadCompanyNotifCount, unreadAdminNotifCount, activeSubsidiaryId, setActiveSubsidiaryId, globalSearchQuery, setGlobalSearchQuery } = useAppStore();
+  const { organization, unreadCompanyNotifCount, unreadAdminNotifCount, activeSubsidiaryId, setActiveSubsidiaryId, globalSearchQuery, setGlobalSearchQuery, subsidiaries } = useAppStore();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isSubDropdownOpen, setIsSubDropdownOpen] = useState(false);
 
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('monneyfact_subsidiaries_list');
-      if (saved) {
-        const all: Subsidiary[] = JSON.parse(saved);
-        // STRICT DATA ISOLATION FILTER BY ORGANIZATION ID & EXCLUDE STALE MOCK IDS
-        const ownSubs = all.filter(
-          (s) => s.organizationId === organization.id && !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
-        );
-        setSubsidiaries(ownSubs);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, [organization.id]);
+  const ownSubsidiaries = (subsidiaries || []).filter(
+    (s) => !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
+  );
 
   const today = formatDate(new Date().toISOString());
   const unreadCount = isAdmin ? unreadAdminNotifCount : unreadCompanyNotifCount;
   const isPro = organization.plan === 'Pro';
-  const hasSubCompanies = !isAdmin && isPro && subsidiaries.length > 0;
+  const hasSubCompanies = !isAdmin && isPro && ownSubsidiaries.length > 0;
   const isCollaborator = user?.isCollaborator;
   const [timeLeftStr, setTimeLeftStr] = useState<string>('');
 
   const activeSubName = activeSubsidiaryId === 'global'
     ? `${organization.name} (Entreprise Principale)`
-    : subsidiaries.find((s) => s.id === activeSubsidiaryId)?.name || 'Sous-Entreprise Sélectionnée';
+    : ownSubsidiaries.find((s) => s.id === activeSubsidiaryId)?.name || 'Sous-Entreprise Sélectionnée';
 
   // Live Timer Countdown for Collaborators
   useEffect(() => {
@@ -149,7 +135,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 
                       <div className="border-t border-slate-100 my-1" />
 
-                      {subsidiaries.map((sub) => (
+                      {ownSubsidiaries.map((sub) => (
                         <button
                           key={sub.id}
                           onClick={() => {

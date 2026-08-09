@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Invoice, Client, Organization, DashboardStats, AppNotification, PlanType } from '../types/invoice';
+import { Invoice, Client, Organization, DashboardStats, AppNotification, PlanType, Subsidiary } from '../types/invoice';
 import { mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
 import { supabase } from '../supabase/client';
@@ -50,6 +50,7 @@ interface AppStoreType {
   organization: Organization;
   invoices: Invoice[];
   clients: Client[];
+  subsidiaries: Subsidiary[];
   stats: DashboardStats;
   companyNotifications: AppNotification[];
   adminNotifications: AppNotification[];
@@ -65,6 +66,8 @@ interface AppStoreType {
   deleteInvoice: (id: string) => void;
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   deleteClient: (id: string) => void;
+  addSubsidiary: (sub: Omit<Subsidiary, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
+  deleteSubsidiary: (id: string) => Promise<void>;
   updateOrganization: (orgData: Partial<Organization>) => void;
   initializeZeroAccount: (companyName: string, email: string, plan?: PlanType) => void;
   purgeAllDatabaseRecords: () => void;
@@ -87,6 +90,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [organization, setOrganization] = useState<Organization>(mockOrganization);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
   const [activeSubsidiaryId, setActiveSubsidiaryId] = useState<string>('global');
   const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
 
@@ -198,6 +202,20 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setClients([]);
         }
 
+        // Load isolated user subsidiaries
+        let subKey = userEmail ? `monneyfact_subsidiaries_${userEmail}` : 'monneyfact_subsidiaries_guest';
+        let savedSubs = localStorage.getItem(subKey);
+        if ((!savedSubs || savedSubs === '[]') && userEmail) {
+          const altSubs = localStorage.getItem('monneyfact_subsidiaries_list');
+          if (altSubs && altSubs !== '[]') savedSubs = altSubs;
+        }
+
+        if (savedSubs && isSubscribed) {
+          setSubsidiaries(JSON.parse(savedSubs));
+        } else if (isSubscribed) {
+          setSubsidiaries([]);
+        }
+
         const savedSubId = localStorage.getItem('monneyfact_active_sub_id');
         if (savedSubId && isSubscribed) setActiveSubsidiaryId(savedSubId);
 
@@ -233,20 +251,48 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (currentOrg.id && currentOrg.id !== 'guest-org' && currentOrg.id !== DEFAULT_ORG_UUID && isSubscribed) {
           try {
-            const [dbInvoices, dbClients, dbNotifs] = await Promise.all([
+            const [dbInvoices, dbClients, dbNotifs, dbSubs] = await Promise.all([
               dbService.getInvoices(currentOrg.id),
               dbService.getClients(currentOrg.id),
               dbService.getCompanyNotifications(currentOrg.id),
+              dbService.getSubsidiaries(currentOrg.id),
             ]);
 
             if (isSubscribed) {
+              if (dbSubs && dbSubs.length > 0) {
+                setSubsidiaries(dbSubs);
+                if (userEmail) {
+                  localStorage.setItem(`monneyfact_subsidiaries_${userEmail}`, JSON.stringify(dbSubs));
+                  localStorage.setItem('monneyfact_subsidiaries_list', JSON.stringify(dbSubs));
+                }
+              }
               if (dbInvoices && dbInvoices.length > 0) {
-                setInvoices(dbInvoices);
-                if (userEmail) localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(dbInvoices));
+                const localInvoicesArr: Invoice[] = savedInvoices ? JSON.parse(savedInvoices) : [];
+                const mergedInvoices = dbInvoices.map((dbInv) => {
+                  const existingLocal = localInvoicesArr.find(
+                    (loc) => loc.id === dbInv.id || loc.invoiceNumber === dbInv.invoiceNumber
+                  );
+                  return {
+                    ...dbInv,
+                    subsidiaryId: dbInv.subsidiaryId || existingLocal?.subsidiaryId,
+                    subsidiaryName: dbInv.subsidiaryName || existingLocal?.subsidiaryName,
+                  };
+                });
+                setInvoices(mergedInvoices);
+                if (userEmail) localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(mergedInvoices));
               }
               if (dbClients && dbClients.length > 0) {
-                setClients(dbClients);
-                if (userEmail) localStorage.setItem(`monneyfact_clients_${userEmail}`, JSON.stringify(dbClients));
+                const localClientsArr: Client[] = savedClients ? JSON.parse(savedClients) : [];
+                const mergedClients = dbClients.map((dbCli) => {
+                  const existingLocal = localClientsArr.find((loc) => loc.id === dbCli.id || loc.name === dbCli.name);
+                  return {
+                    ...dbCli,
+                    subsidiaryId: dbCli.subsidiaryId || existingLocal?.subsidiaryId,
+                    subsidiaryName: dbCli.subsidiaryName || existingLocal?.subsidiaryName,
+                  };
+                });
+                setClients(mergedClients);
+                if (userEmail) localStorage.setItem(`monneyfact_clients_${userEmail}`, JSON.stringify(mergedClients));
               }
               if (dbNotifs && dbNotifs.length > 0) {
                 setCompanyNotifications(dbNotifs);
@@ -329,6 +375,71 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const saveSubsidiariesForUser = (subList: Subsidiary[]) => {
+    setSubsidiaries(subList);
+    try {
+      const email = getUserEmail();
+      localStorage.setItem(`monneyfact_subsidiaries_${email}`, JSON.stringify(subList));
+      localStorage.setItem('monneyfact_subsidiaries_list', JSON.stringify(subList));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const addSubsidiary = async (newSub: Omit<Subsidiary, 'id' | 'createdAt'> & { id?: string }) => {
+    const isValidUuid = newSub.id && /^[0-9a-f-]{36}$/i.test(newSub.id);
+    const generatedId = isValidUuid
+      ? newSub.id!
+      : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : getDeterministicUserOrgId(`sub-${Date.now()}`));
+
+    const created: Subsidiary = {
+      ...newSub,
+      id: generatedId,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [created, ...subsidiaries];
+    saveSubsidiariesForUser(updated);
+
+    try {
+      if (organization.id) {
+        await dbService.createSubsidiary(created);
+      }
+    } catch (e) {
+      console.warn('Supabase createSubsidiary warning:', e);
+    }
+
+    addCompanyNotif(
+      'Sous-Entreprise Enregistrée',
+      `L'établissement "${created.name}" (${created.city}) a été ajouté avec succès.`,
+      'success'
+    );
+  };
+
+  const deleteSubsidiary = async (id: string) => {
+    const target = subsidiaries.find((s) => s.id === id);
+    const updated = subsidiaries.filter((s) => s.id !== id);
+    saveSubsidiariesForUser(updated);
+
+    if (activeSubsidiaryId === id) {
+      setActiveSubsidiaryId('global');
+    }
+
+    try {
+      await dbService.deleteSubsidiary(id);
+    } catch (e) {
+      console.warn('Supabase deleteSubsidiary warning:', e);
+    }
+
+    if (target) {
+      addCompanyNotif(
+        'Sous-Entreprise Supprimée',
+        `L'établissement "${target.name}" a été retiré.`,
+        'warning'
+      );
+    }
+  };
+
   const saveCompanyNotifs = (list: AppNotification[], orgId: string = organization.id) => {
     setCompanyNotifications(list);
     try {
@@ -380,13 +491,24 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Compute Context-Aware Invoices & Clients
+  const activeSub = (subsidiaries || []).find((s) => s.id === activeSubsidiaryId);
+  const activeSubNameClean = activeSub?.name?.toLowerCase().trim();
+
   const contextInvoices = activeSubsidiaryId === 'global'
     ? invoices
-    : invoices.filter((i) => i.subsidiaryId === activeSubsidiaryId);
+    : invoices.filter((i) => {
+        if (i.subsidiaryId && i.subsidiaryId === activeSubsidiaryId) return true;
+        if (activeSubNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === activeSubNameClean) return true;
+        return false;
+      });
 
   const contextClients = activeSubsidiaryId === 'global'
     ? clients
-    : clients.filter((c) => c.subsidiaryId === activeSubsidiaryId || !c.subsidiaryId);
+    : clients.filter((c) => {
+        if (c.subsidiaryId && c.subsidiaryId === activeSubsidiaryId) return true;
+        if (activeSubNameClean && c.subsidiaryName && c.subsidiaryName.toLowerCase().trim() === activeSubNameClean) return true;
+        return !c.subsidiaryId;
+      });
 
   const stats: DashboardStats = {
     totalInvoiced: contextInvoices.reduce((sum, inv) => sum + inv.total, 0),
@@ -407,9 +529,25 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addInvoice = async (newInv: Omit<Invoice, 'id' | 'createdAt'>) => {
     const generatedId = `inv-${Date.now()}`;
+    let targetSubId = newInv.subsidiaryId || (activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined);
+    let targetSubName = newInv.subsidiaryName;
+
+    if (targetSubId && !targetSubName) {
+      const found = (subsidiaries || []).find((s) => s.id === targetSubId);
+      if (found) targetSubName = found.name;
+    } else if (!targetSubId && activeSubsidiaryId !== 'global') {
+      const found = (subsidiaries || []).find((s) => s.id === activeSubsidiaryId);
+      if (found) {
+        targetSubId = found.id;
+        targetSubName = found.name;
+      }
+    }
+
     const created: Invoice = {
       ...newInv,
       id: generatedId,
+      subsidiaryId: targetSubId,
+      subsidiaryName: targetSubName,
       paymentToken: generatedId,
       createdAt: new Date().toISOString(),
     };
@@ -478,9 +616,28 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const addClient = async (newCli: Omit<Client, 'id' | 'createdAt'>) => {
+    const targetSubId = newCli.subsidiaryId || (activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined);
+    let targetSubName = newCli.subsidiaryName;
+
+    if (targetSubId && !targetSubName) {
+      try {
+        const uEmail = getUserEmail();
+        const userSubsStr = localStorage.getItem(`monneyfact_subsidiaries_${uEmail}`);
+        if (userSubsStr) {
+          const subs: any[] = JSON.parse(userSubsStr);
+          const found = subs.find((s) => s.id === targetSubId);
+          if (found) targetSubName = found.name;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     const created: Client = {
       ...newCli,
       id: `cli-${Date.now()}`,
+      subsidiaryId: targetSubId,
+      subsidiaryName: targetSubName,
       createdAt: new Date().toISOString(),
       totalInvoiced: 0,
       unpaidBalance: 0,
@@ -728,6 +885,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         organization,
         invoices: contextInvoices,
         clients: contextClients,
+        subsidiaries,
         stats,
         companyNotifications,
         adminNotifications,
@@ -743,6 +901,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deleteInvoice,
         addClient,
         deleteClient,
+        addSubsidiary,
+        deleteSubsidiary,
         updateOrganization,
         initializeZeroAccount,
         purgeAllDatabaseRecords,

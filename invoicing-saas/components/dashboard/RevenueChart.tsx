@@ -8,32 +8,38 @@ import { useAppStore } from '@/lib/store/appStore';
 export type TimeFilterPeriod = 'today' | 'week' | 'month' | 'year' | 'custom';
 
 export const RevenueChart: React.FC = () => {
-  const { invoices, clients } = useAppStore();
+  const { invoices, clients, activeSubsidiaryId } = useAppStore();
   const [period, setPeriod] = useState<TimeFilterPeriod>('month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // POINT 4: Strict real-data calculation based strictly on store invoices
+  // Context-aware invoices provided directly by appStore
+  const contextInvoices = invoices;
+  const contextClients = clients;
+
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
 
-  // Helper to filter invoices by period
-  const filteredInvoices = invoices.filter((inv) => {
+  // Helper to filter invoices by period with robust date string parsing
+  const filteredInvoices = contextInvoices.filter((inv) => {
     if (!inv.issueDate) return true;
 
     if (period === 'today') {
       return inv.issueDate === todayStr;
     }
 
+    const parts = inv.issueDate.split('-');
+    const year = parts.length === 3 ? parseInt(parts[0], 10) : new Date(inv.issueDate).getFullYear();
+    const month = parts.length === 3 ? parseInt(parts[1], 10) - 1 : new Date(inv.issueDate).getMonth();
+
     if (period === 'week') {
       const invDate = new Date(inv.issueDate);
       const diffDays = (now.getTime() - invDate.getTime()) / (1000 * 3600 * 24);
-      return diffDays <= 7;
+      return diffDays <= 7 && diffDays >= -1;
     }
 
     if (period === 'year') {
-      const invYear = new Date(inv.issueDate).getFullYear();
-      return invYear === now.getFullYear();
+      return year === now.getFullYear();
     }
 
     if (period === 'custom' && customStartDate && customEndDate) {
@@ -41,15 +47,13 @@ export const RevenueChart: React.FC = () => {
     }
 
     // Default 'month'
-    const invMonth = new Date(inv.issueDate).getMonth();
-    const invYear = new Date(inv.issueDate).getFullYear();
-    return invMonth === now.getMonth() && invYear === now.getFullYear();
+    return month === now.getMonth() && year === now.getFullYear();
   });
 
   const totalInvoiced = filteredInvoices.reduce((acc, inv) => acc + (inv.total || 0), 0);
   const totalPaid = filteredInvoices.filter((inv) => inv.status === 'paid').reduce((acc, inv) => acc + (inv.total || 0), 0);
   const invoiceCount = filteredInvoices.length;
-  const activeClientCount = clients.length;
+  const activeClientCount = contextClients.length;
 
   // Build 6 data points for the smooth evolution curve
   const curvePoints = [
