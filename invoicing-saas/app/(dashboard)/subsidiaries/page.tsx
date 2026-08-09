@@ -239,93 +239,100 @@ export default function SubsidiariesPage() {
           ) : (
             /* LIST OF SUB-AGENCIES WHEN CREATED */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredSubsidiaries.map((sub) => (
-                <div
-                  key={sub.id}
-                  className={`p-6 bg-white rounded-2xl border transition-all space-y-4 flex flex-col justify-between ${
-                    activeSubsidiaryId === sub.id
-                      ? 'border-orange-500 ring-2 ring-orange-500/20 shadow-md'
-                      : 'border-slate-200 shadow-xs hover:shadow-md'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center font-bold shrink-0">
-                          {sub.type === 'Siège Social' ? (
-                            <Building className="w-6 h-6" />
-                          ) : sub.type === 'Boutique / Point de Vente' ? (
-                            <Store className="w-6 h-6" />
-                          ) : (
-                            <Building2 className="w-6 h-6" />
-                          )}
+              {filteredSubsidiaries.map((sub) => {
+                const subInvoices = invoices.filter((i) => i.subsidiaryId === sub.id);
+                const subTotalInvoiced = subInvoices.reduce((sum, inv) => sum + inv.total, 0);
+                const subInvoiceCount = subInvoices.length;
+
+                return (
+                  <div
+                    key={sub.id}
+                    className={`p-6 bg-white rounded-2xl border transition-all space-y-4 flex flex-col justify-between ${
+                      activeSubsidiaryId === sub.id
+                        ? 'border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                        : 'border-slate-200 shadow-xs hover:shadow-md'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center font-bold shrink-0">
+                            {sub.type === 'Siège Social' ? (
+                              <Building className="w-6 h-6" />
+                            ) : sub.type === 'Boutique / Point de Vente' ? (
+                              <Store className="w-6 h-6" />
+                            ) : (
+                              <Building2 className="w-6 h-6" />
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-extrabold text-slate-900 leading-tight">{sub.name}</h3>
+                            <span className="text-[10px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full inline-block mt-1">
+                              {sub.type}
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Delete Sub-Company Button */}
+                        <button
+                          onClick={() => handleDeleteSubsidiary(sub.id, sub.name)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Supprimer la sous-entreprise"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="font-semibold text-slate-800">{sub.address} ({sub.city})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>Responsable : <strong>{sub.managerName}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="font-mono">{sub.phone}</span>
+                        </div>
+                        {sub.rccmNumber && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
+                            <FileCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>RCCM : {sub.rccmNumber}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
                         <div>
-                          <h3 className="text-sm font-extrabold text-slate-900 leading-tight">{sub.name}</h3>
-                          <span className="text-[10px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full inline-block mt-1">
-                            {sub.type}
-                          </span>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Facturé</span>
+                          <span className="font-mono font-extrabold text-slate-900 text-sm">{formatFCFA(subTotalInvoiced)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Factures</span>
+                          <span className="font-mono font-extrabold text-orange-600 text-sm">{subInvoiceCount} émise(s)</span>
                         </div>
                       </div>
 
-                      {/* Delete Sub-Company Button */}
+                      {/* Switch Context Button */}
                       <button
-                        onClick={() => handleDeleteSubsidiary(sub.id, sub.name)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Supprimer la sous-entreprise"
+                        onClick={() => handleSwitchContext(sub.id)}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                          activeSubsidiaryId === sub.id
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-slate-900 hover:bg-slate-800 text-white shadow-xs'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <span>{activeSubsidiaryId === sub.id ? '✓ Contexte Actif' : '⚡ Basculer le Dashboard sur cette filiale'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
-
-                    <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-semibold text-slate-800">{sub.address} ({sub.city})</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>Responsable : <strong>{sub.managerName}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-mono">{sub.phone}</span>
-                      </div>
-                      {sub.rccmNumber && (
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                          <FileCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>RCCM : {sub.rccmNumber}</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
-
-                  <div className="pt-3 border-t border-slate-100 space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Facturé</span>
-                        <span className="font-mono font-extrabold text-slate-900 text-sm">{formatFCFA(sub.totalInvoiced)}</span>
-                      </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {sub.status.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Switch Context Button */}
-                    <button
-                      onClick={() => handleSwitchContext(sub.id)}
-                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                        activeSubsidiaryId === sub.id
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-slate-900 hover:bg-slate-800 text-white shadow-xs'
-                      }`}
-                    >
-                      <span>{activeSubsidiaryId === sub.id ? '✓ Contexte Actif' : '⚡ Basculer le Dashboard sur cette filiale'}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

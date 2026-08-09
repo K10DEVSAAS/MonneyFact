@@ -289,9 +289,24 @@ export default function InvoicesPage() {
                         <p className="font-semibold text-slate-900 group-hover:text-orange-600 transition-colors">
                           {inv.clientName}
                         </p>
-                        {inv.clientEmail && (
-                          <p className="text-[11px] text-slate-400 font-mono">{inv.clientEmail}</p>
-                        )}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          {inv.clientEmail && (
+                            <span className="text-[11px] text-slate-400 font-mono">{inv.clientEmail}</span>
+                          )}
+                          {inv.subsidiaryName ? (
+                            <span className="text-[9px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-md">
+                              📍 {inv.subsidiaryName}
+                            </span>
+                          ) : inv.subsidiaryId ? (
+                            <span className="text-[9px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-md">
+                              📍 Agence
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                              🏢 Siège Social
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 

@@ -51,9 +51,25 @@ export default function ClientsPage() {
       return;
     }
 
+    let currentSubName: string | undefined = undefined;
+    if (activeSubsidiaryId !== 'global') {
+      try {
+        const uEmail = organization.email ? organization.email.toLowerCase() : 'guest';
+        const userSubsStr = localStorage.getItem(`monneyfact_subsidiaries_${uEmail}`);
+        if (userSubsStr) {
+          const subs: any[] = JSON.parse(userSubsStr);
+          const found = subs.find((s) => s.id === activeSubsidiaryId);
+          if (found) currentSubName = found.name;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     addClient({
       organizationId: organization.id,
       subsidiaryId: activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined,
+      subsidiaryName: currentSubName,
       name: formData.name,
       email: formData.email || 'client@entreprise.ci',
       phone: formData.phone || '+225 07 00 00 00 00',
