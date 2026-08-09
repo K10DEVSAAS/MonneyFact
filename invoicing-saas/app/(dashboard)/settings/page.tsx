@@ -8,8 +8,11 @@ import { paymentProvider, PaymentChannel } from '@/lib/services/paymentService';
 import { subscriptionService } from '@/lib/services/subscriptionService';
 import { PlanType } from '@/lib/types/invoice';
 
+import { useRouter } from 'next/navigation';
+
 export default function SettingsPage() {
-  const { organization, updateOrganization } = useAppStore();
+  const router = useRouter();
+  const { organization, updateOrganization, addCompanyNotif } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentPlan, setCurrentPlan] = useState<PlanType>(organization.plan || 'Pro');
@@ -106,6 +109,7 @@ export default function SettingsPage() {
 
         alert(`Paiement simulé réussi ! Votre abonnement a été basculé vers la formule ${targetPlan}.`);
         setPaymentModalOpen(false);
+        router.push('/dashboard');
       } else {
         alert('Erreur lors de la simulation du règlement. Veuillez réessayer.');
       }
@@ -129,8 +133,9 @@ export default function SettingsPage() {
       plan: currentPlan,
     });
 
+    addCompanyNotif('Paramètres Enregistrés', 'Vos paramètres d\'entreprise ont été enregistrés avec succès.', 'success');
     setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    router.push('/dashboard');
   };
 
   return (

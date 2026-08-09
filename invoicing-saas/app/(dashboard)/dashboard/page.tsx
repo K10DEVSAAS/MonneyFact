@@ -105,41 +105,41 @@ export default function DashboardPage() {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <Link
+              href="/clients"
+              className="p-4 bg-slate-50 hover:bg-orange-50/50 border border-slate-200 hover:border-orange-300 rounded-xl space-y-2 group transition-all"
+            >
+              <div className="w-8 h-8 rounded-lg bg-orange-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs">
+                1
+              </div>
+              <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                1. Enregistrer un Client
+              </p>
+              <p className="text-[11px] text-slate-500">Renseignez le nom, l&apos;e-mail et le téléphone de votre client.</p>
+            </Link>
+
             {canCreateInvoices ? (
               <Link
                 href="/invoices/new"
                 className="p-4 bg-slate-50 hover:bg-orange-50/50 border border-slate-200 hover:border-orange-300 rounded-xl space-y-2 group transition-all"
               >
-                <div className="w-8 h-8 rounded-lg bg-orange-600 text-white font-extrabold text-xs flex items-center justify-center">
-                  1
+                <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white font-extrabold text-xs flex items-center justify-center">
+                  2
                 </div>
                 <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
-                  Créer votre 1ère Facture
+                  2. Créer une Facture
                 </p>
-                <p className="text-[11px] text-slate-500">Ajoutez des prestations avec calcul automatique de TVA 18%.</p>
+                <p className="text-[11px] text-slate-500">Sélectionnez le client et ajoutez vos prestations avec TVA 18%.</p>
               </Link>
             ) : (
               <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl space-y-2 opacity-60">
                 <div className="w-8 h-8 rounded-lg bg-slate-400 text-white font-extrabold text-xs flex items-center justify-center">
-                  1
+                  2
                 </div>
                 <p className="text-xs font-bold text-slate-700">Créer une Facture (Masqué)</p>
                 <p className="text-[11px] text-slate-500">Autorisation manquante</p>
               </div>
             )}
-
-            <Link
-              href="/clients"
-              className="p-4 bg-slate-50 hover:bg-orange-50/50 border border-slate-200 hover:border-orange-300 rounded-xl space-y-2 group transition-all"
-            >
-              <div className="w-8 h-8 rounded-lg bg-zinc-900 text-white font-extrabold text-xs flex items-center justify-center">
-                2
-              </div>
-              <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
-                Enregistrer un Client
-              </p>
-              <p className="text-[11px] text-slate-500">Ajoutez le nom, l&apos;adresse et le numéro de vos clients.</p>
-            </Link>
 
             <Link
               href="/settings"
@@ -149,9 +149,9 @@ export default function DashboardPage() {
                 3
               </div>
               <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
-                Configurer les Paramètres
+                3. Configurer les Paramètres
               </p>
-              <p className="text-[11px] text-slate-500">Renseignez votre NNE/NCC et ajoutez le logo de votre entreprise.</p>
+              <p className="text-[11px] text-slate-500">Renseignez votre NNE/NCC et téléversez votre logo d&apos;entreprise.</p>
             </Link>
           </div>
         </div>
