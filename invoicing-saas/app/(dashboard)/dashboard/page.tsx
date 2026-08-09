@@ -178,7 +178,13 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Invoices Table */}
-      <RecentInvoices invoices={invoices} />
+      <RecentInvoices
+        invoices={
+          activeSubsidiaryId === 'global'
+            ? invoices
+            : invoices.filter((i) => i.subsidiaryId === activeSubsidiaryId)
+        }
+      />
     </div>
   );
 }

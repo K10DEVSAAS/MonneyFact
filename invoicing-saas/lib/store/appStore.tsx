@@ -120,7 +120,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         const u = JSON.parse(savedUser);
-        if (u.isCollaborator && u.hostCompanyEmail) {
+        const isCollab = !!u.isCollaborator;
+        if (isCollab && u.hostCompanyEmail) {
           userEmail = u.hostCompanyEmail.toLowerCase();
         } else {
           userEmail = u.email ? u.email.toLowerCase() : '';
@@ -130,8 +131,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         currentOrg = {
           ...mockOrganization,
-          id: (u.id && u.id !== DEFAULT_ORG_UUID) ? u.id : uniqueUserOrgId,
-          name: u.companyName || u.name || mockOrganization.name,
+          id: (isCollab || !u.id || u.id === DEFAULT_ORG_UUID || u.id.startsWith('collab-')) ? uniqueUserOrgId : u.id,
+          name: u.hostCompanyName || u.companyName || u.name || mockOrganization.name,
           email: userEmail || u.email || mockOrganization.email,
           plan: u.plan || 'Pro',
         };

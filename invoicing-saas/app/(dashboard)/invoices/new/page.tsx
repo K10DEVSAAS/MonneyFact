@@ -28,32 +28,39 @@ import { Lock } from 'lucide-react';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, invoices, addInvoice, organization } = useAppStore();
+  const { clients, invoices, addInvoice, organization, activeSubsidiaryId } = useAppStore();
   const { hasPermission } = usePermissions();
 
   const canCreateInvoices = hasPermission('create_invoices');
+  const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
 
   const [subsidiariesList, setSubsidiariesList] = useState<Subsidiary[]>([]);
-  const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState('');
+  const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState(
+    activeSubsidiaryId !== 'global' ? activeSubsidiaryId : ''
+  );
 
   const isProPlan = organization.plan === 'Pro';
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('monneyfact_subsidiaries_list');
-      if (saved) {
-        const allSubs: Subsidiary[] = JSON.parse(saved);
-        // STRICT SECURITY FILTER & CLEAN MOCK DATA:
-        // Only load sub-companies belonging to current organization AND exclude legacy mock IDs
-        const ownSubs = allSubs.filter(
-          (s) => s.organizationId === organization.id && !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
-        );
-        setSubsidiariesList(ownSubs);
+      let ownSubs: Subsidiary[] = [];
+      const userSubsStr = localStorage.getItem(`monneyfact_subsidiaries_${userEmail}`);
+      if (userSubsStr) {
+        ownSubs = JSON.parse(userSubsStr);
+      } else {
+        const saved = localStorage.getItem('monneyfact_subsidiaries_list');
+        if (saved) {
+          const allSubs: Subsidiary[] = JSON.parse(saved);
+          ownSubs = allSubs.filter(
+            (s) => s.organizationId === organization.id && !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
+          );
+        }
       }
+      setSubsidiariesList(ownSubs);
     } catch (e) {
       console.error(e);
     }
-  }, [organization.id]);
+  }, [organization.id, userEmail]);
 
   if (!canCreateInvoices) {
     return (
