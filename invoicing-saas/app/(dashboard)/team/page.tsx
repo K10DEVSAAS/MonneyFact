@@ -282,11 +282,11 @@ export default function TeamPage() {
 
           <div className="space-y-2 max-w-lg mx-auto">
             <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-full">
-              👑 Exclusif au Plan Business (15.000 FCFA/mois)
+              👑 Exclusif au Plan Pro (5 000 FCFA/mois)
             </span>
-            <h3 className="text-2xl font-black text-white">Débloquez le Multi-Utilisateurs & Journal d&apos;Audit</h3>
+            <h3 className="text-2xl font-black text-white">Gestion de l&apos;Équipe & Collaborateurs Suspendue</h3>
             <p className="text-xs text-zinc-400">
-              Votre formule actuelle (<strong className="text-white">{organization.plan || 'Pro'}</strong>) ne permet pas d&apos;inviter des collaborateurs. Passez au Plan Business pour partager les accès avec votre équipe et suivre les actions effectuées.
+              Votre formule actuelle (<strong className="text-white">Plan Basique - 1 000 FCFA/m</strong>) désactive l&apos;accès multi-utilisateurs. <strong className="text-emerald-400 font-bold">Vos collaborateurs précédemment invités ({members.length}) restent 100% conservés en sécurité.</strong> Surclassez votre compte vers le Plan Pro pour réactiver tous les accès d&apos;équipe.
             </p>
           </div>
 
@@ -295,7 +295,7 @@ export default function TeamPage() {
               href="/settings"
               className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-orange-600/30 transition-all"
             >
-              <span>Passer au Plan Business (15.000 FCFA/m)</span>
+              <span>Réactiver / Passer au Plan Pro (5 000 FCFA/m)</span>
               <Crown className="w-4 h-4 text-amber-300" />
             </Link>
           </div>

@@ -155,7 +155,7 @@ export default function SubsidiariesPage() {
         </p>
       </div>
 
-      {/* LOCK HERO BANNER IF NOT BUSINESS PLAN */}
+      {/* LOCK HERO BANNER IF NOT PRO PLAN */}
       {!isProPlan ? (
         <div className="p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl space-y-6 text-center relative overflow-hidden">
           <div className="w-16 h-16 rounded-3xl bg-orange-600/20 border border-orange-500/30 text-orange-400 flex items-center justify-center mx-auto">
@@ -164,11 +164,11 @@ export default function SubsidiariesPage() {
 
           <div className="space-y-2 max-w-lg mx-auto">
             <span className="px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold rounded-full">
-              👑 Exclusif au Plan Business (15.000 FCFA/mois)
+              👑 Exclusif au Plan Pro (5 000 FCFA/mois)
             </span>
-            <h3 className="text-2xl font-black text-white">Débloquez la Gestion Multi-Établissements & Filiales</h3>
+            <h3 className="text-2xl font-black text-white">Gestion Multi-Établissements & Filiales Suspende</h3>
             <p className="text-xs text-zinc-400">
-              Votre formule actuelle (<strong className="text-white">{organization.plan || 'Pro'}</strong>) est limitée à un seul établissement. Passez au Plan Business pour créer et piloter des agences régionales, boutiques et filiales autonomes.
+              Votre formule actuelle (<strong className="text-white">Plan Basique - 1 000 FCFA/m</strong>) désactive la création et le pilotage d&apos;agences. <strong className="text-emerald-400 font-bold">Vos sous-entreprises précédemment enregistrées ({subsidiaries.length}) restent 100% conservées en sécurité.</strong> Surclassez votre compte vers le Plan Pro pour réactiver toutes vos filiales.
             </p>
           </div>
 
@@ -177,7 +177,7 @@ export default function SubsidiariesPage() {
               href="/settings"
               className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-orange-600/30 transition-all"
             >
-              <span>Passer au Plan Business (15.000 FCFA/m)</span>
+              <span>Réactiver / Passer au Plan Pro (5 000 FCFA/m)</span>
               <Crown className="w-4 h-4 text-amber-300" />
             </Link>
           </div>
