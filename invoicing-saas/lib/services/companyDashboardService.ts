@@ -70,14 +70,10 @@ export const companyDashboardService = {
     const companyName = subMatch?.name || 'Sous-Entreprise';
     const subNameClean = companyName.toLowerCase().trim();
 
-    // 2. Query or filter invoices strictly for this sub-company
+    // 2. RULE 4: subsidiary_id is the Single Source of Truth
     let companyInvoices: Invoice[] = [];
     if (allInvoices && allInvoices.length > 0) {
-      companyInvoices = allInvoices.filter((i) => {
-        if (i.subsidiaryId && i.subsidiaryId === companyId) return true;
-        if (subNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === subNameClean) return true;
-        return false;
-      });
+      companyInvoices = allInvoices.filter((i) => i.subsidiaryId === companyId);
     } else {
       companyInvoices = await dbService.getCompanyInvoices(mainCompanyId, companyId);
     }
@@ -156,14 +152,9 @@ export const companyDashboardService = {
       })
       .reduce((sum, inv) => sum + (inv.total || 0), 0);
 
-    // 2. Build Per-Subcompany Consolidated Breakdown
+    // 2. Build Per-Subcompany Consolidated Breakdown (RULE 4: ID driven)
     const companyBreakdown: CompanyBreakdownItem[] = subsidiariesList.map((sub) => {
-      const subNameClean = sub.name.toLowerCase().trim();
-      const subInvoices = allInvoices.filter((i) => {
-        if (i.subsidiaryId && i.subsidiaryId === sub.id) return true;
-        if (subNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === subNameClean) return true;
-        return false;
-      });
+      const subInvoices = allInvoices.filter((i) => i.subsidiaryId === sub.id);
 
       const subRevenue = subInvoices.reduce((acc, inv) => acc + (inv.total || 0), 0);
       const subPaid = subInvoices.filter((i) => i.status === 'paid').reduce((acc, inv) => acc + (inv.total || 0), 0);

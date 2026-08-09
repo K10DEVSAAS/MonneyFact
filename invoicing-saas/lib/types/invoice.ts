@@ -129,6 +129,10 @@ export interface Organization {
   createdAt: string;
 }
 
+export type CompanyContext = 
+  | { type: 'main'; mainCompanyId: string }
+  | { type: 'subcompany'; mainCompanyId: string; subCompanyId: string; subCompanyName?: string };
+
 export interface DashboardStats {
   totalInvoiced: number;
   totalPaid: number;

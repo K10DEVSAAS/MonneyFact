@@ -505,40 +505,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveAdminNotifs([notif, ...adminNotifications]);
   };
 
-  // Compute Context-Aware Invoices & Clients
-  const activeSub = (subsidiaries || []).find((s) => s.id === activeSubsidiaryId);
-  const activeSubNameClean = activeSub?.name?.toLowerCase().trim();
-
-  const contextInvoices = activeSubsidiaryId === 'global'
-    ? invoices
-    : invoices.filter((i) => {
-        if (i.subsidiaryId && i.subsidiaryId === activeSubsidiaryId) return true;
-        if (activeSubNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === activeSubNameClean) return true;
-        return false;
-      });
-
-  const contextClients = activeSubsidiaryId === 'global'
-    ? clients
-    : clients.filter((c) => {
-        if (c.subsidiaryId && c.subsidiaryId === activeSubsidiaryId) return true;
-        if (activeSubNameClean && c.subsidiaryName && c.subsidiaryName.toLowerCase().trim() === activeSubNameClean) return true;
-        return !c.subsidiaryId;
-      });
-
-  const stats: DashboardStats = {
-    totalInvoiced: contextInvoices.reduce((sum, inv) => sum + inv.total, 0),
-    totalPaid: contextInvoices.filter((i) => i.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
-    totalPending: contextInvoices.filter((i) => i.status === 'sent').reduce((sum, inv) => sum + inv.total, 0),
-    totalOverdue: contextInvoices.filter((i) => i.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0),
-    invoiceCounts: {
-      total: contextInvoices.length,
-      draft: contextInvoices.filter((i) => i.status === 'draft').length,
-      sent: contextInvoices.filter((i) => i.status === 'sent').length,
-      paid: contextInvoices.filter((i) => i.status === 'paid').length,
-      overdue: contextInvoices.filter((i) => i.status === 'overdue').length,
-    },
-  };
-
+  // RULE 4 & RULE 5: Single Context Source of Truth & subsidiary_id as Single Source of Truth
   const currentContext: CompanyContext = activeSubsidiaryId === 'global'
     ? { type: 'main', mainCompanyId: organization.id }
     : {
@@ -554,6 +521,28 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       setActiveSubsidiaryId(ctx.subCompanyId);
     }
+  };
+
+  const contextInvoices = currentContext.type === 'main'
+    ? invoices
+    : invoices.filter((i) => i.subsidiaryId === currentContext.subCompanyId);
+
+  const contextClients = currentContext.type === 'main'
+    ? clients
+    : clients.filter((c) => c.subsidiaryId === currentContext.subCompanyId);
+
+  const stats: DashboardStats = {
+    totalInvoiced: contextInvoices.reduce((sum, inv) => sum + inv.total, 0),
+    totalPaid: contextInvoices.filter((i) => i.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
+    totalPending: contextInvoices.filter((i) => i.status === 'sent').reduce((sum, inv) => sum + inv.total, 0),
+    totalOverdue: contextInvoices.filter((i) => i.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0),
+    invoiceCounts: {
+      total: contextInvoices.length,
+      draft: contextInvoices.filter((i) => i.status === 'draft').length,
+      sent: contextInvoices.filter((i) => i.status === 'sent').length,
+      paid: contextInvoices.filter((i) => i.status === 'paid').length,
+      overdue: contextInvoices.filter((i) => i.status === 'overdue').length,
+    },
   };
 
   const getCompanyDashboard = async (targetCompanyId?: string): Promise<CompanyDashboardResult> => {
@@ -599,12 +588,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .reduce((sum, inv) => sum + (inv.total || 0), 0);
 
     const companyBreakdown = subsidiaries.map((sub) => {
-      const subNameClean = sub.name.toLowerCase().trim();
-      const subInvoices = invoices.filter((i) => {
-        if (i.subsidiaryId && i.subsidiaryId === sub.id) return true;
-        if (subNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === subNameClean) return true;
-        return false;
-      });
+      const subInvoices = invoices.filter((i) => i.subsidiaryId === sub.id);
 
       return {
         companyId: sub.id,
