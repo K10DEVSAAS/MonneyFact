@@ -676,7 +676,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveInvoicesForUser(updated);
 
     try {
-      await fetch('/api/invoices/create', {
+      const response = await fetch('/api/invoices/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -685,8 +685,16 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           organizationName: organization.name,
         }),
       });
+
+      const resJson = await response.json();
+      if (!response.ok || !resJson?.success) {
+        const errorMsg = resJson?.error || 'Échec de l\'enregistrement en base de données Supabase.';
+        console.error('[API INVOICE CREATE ERROR]', errorMsg);
+        throw new Error(errorMsg);
+      }
     } catch (apiErr) {
       console.error('[DEBUG STORE ERROR] /api/invoices/create fetch error:', apiErr);
+      throw apiErr;
     }
 
     addCompanyNotif(
