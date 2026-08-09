@@ -101,7 +101,12 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
-  const [activeSubsidiaryId, setActiveSubsidiaryId] = useState<string>('global');
+  const [activeSubsidiaryId, setActiveSubsidiaryId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('monneyfact_active_sub_id') || 'global';
+    }
+    return 'global';
+  });
   const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
 
   const [companyNotifications, setCompanyNotifications] = useState<AppNotification[]>([]);
@@ -226,7 +231,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSubsidiaries([]);
         }
 
-        const savedSubId = localStorage.getItem('monneyfact_active_sub_id');
+        const subIdKey = userEmail ? `monneyfact_active_sub_id_${userEmail}` : 'monneyfact_active_sub_id';
+        const savedSubId = localStorage.getItem(subIdKey) || localStorage.getItem('monneyfact_active_sub_id');
         if (savedSubId && isSubscribed) setActiveSubsidiaryId(savedSubId);
 
         const orgNotifKey = `monneyfact_notifs_${userEmail || currentOrg.id}`;
