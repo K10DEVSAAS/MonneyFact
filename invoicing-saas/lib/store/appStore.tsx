@@ -47,6 +47,10 @@ const getValidUuid = (id?: string, email?: string) => {
   return getDeterministicUserOrgId(email || `usr-${Date.now()}`);
 };
 
+export type CompanyContext = 
+  | { type: 'main'; mainCompanyId: string }
+  | { type: 'subcompany'; mainCompanyId: string; subCompanyId: string; subCompanyName?: string };
+
 interface AppStoreType {
   organization: Organization;
   invoices: Invoice[];
@@ -54,6 +58,8 @@ interface AppStoreType {
   subsidiaries: Subsidiary[];
   stats: DashboardStats;
   mainCompanyDashboard: MainCompanyDashboardResult;
+  currentContext: CompanyContext;
+  switchContext: (context: CompanyContext) => void;
   getCompanyDashboard: (companyId?: string) => Promise<CompanyDashboardResult>;
   getMainCompanyDashboard: () => Promise<MainCompanyDashboardResult>;
   companyNotifications: AppNotification[];
@@ -533,6 +539,23 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     },
   };
 
+  const currentContext: CompanyContext = activeSubsidiaryId === 'global'
+    ? { type: 'main', mainCompanyId: organization.id }
+    : {
+        type: 'subcompany',
+        mainCompanyId: organization.id,
+        subCompanyId: activeSubsidiaryId,
+        subCompanyName: (subsidiaries || []).find((s) => s.id === activeSubsidiaryId)?.name,
+      };
+
+  const switchContext = (ctx: CompanyContext) => {
+    if (ctx.type === 'main') {
+      setActiveSubsidiaryId('global');
+    } else {
+      setActiveSubsidiaryId(ctx.subCompanyId);
+    }
+  };
+
   const getCompanyDashboard = async (targetCompanyId?: string): Promise<CompanyDashboardResult> => {
     const compId = targetCompanyId || activeSubsidiaryId;
     return await companyDashboardService.getCompanyDashboard(
@@ -995,6 +1018,8 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         subsidiaries,
         stats,
         mainCompanyDashboard,
+        currentContext,
+        switchContext,
         getCompanyDashboard,
         getMainCompanyDashboard,
         companyNotifications,

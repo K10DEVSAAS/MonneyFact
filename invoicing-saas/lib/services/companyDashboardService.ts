@@ -70,12 +70,17 @@ export const companyDashboardService = {
     const companyName = subMatch?.name || 'Sous-Entreprise';
     const subNameClean = companyName.toLowerCase().trim();
 
-    // 2. Strict Filter by companyId (or sub-company name fallback)
-    const companyInvoices = allInvoices.filter((i) => {
-      if (i.subsidiaryId && i.subsidiaryId === companyId) return true;
-      if (subNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === subNameClean) return true;
-      return false;
-    });
+    // 2. Query or filter invoices strictly for this sub-company
+    let companyInvoices: Invoice[] = [];
+    if (allInvoices && allInvoices.length > 0) {
+      companyInvoices = allInvoices.filter((i) => {
+        if (i.subsidiaryId && i.subsidiaryId === companyId) return true;
+        if (subNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === subNameClean) return true;
+        return false;
+      });
+    } else {
+      companyInvoices = await dbService.getCompanyInvoices(mainCompanyId, companyId);
+    }
 
     const now = new Date();
     const currentMonth = now.getMonth();
