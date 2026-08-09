@@ -53,7 +53,16 @@ export async function POST(request: Request) {
       console.warn('[API INVOICE CREATE] Org upsert warning:', orgErr);
     }
 
-    const isValidSubUuid = subsidiaryId && /^[0-9a-f-]{36}$/i.test(subsidiaryId);
+    function toValidUuid(idStr: string | null | undefined): string | null {
+      if (!idStr) return null;
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idStr)) {
+        return idStr;
+      }
+      const hex = Array.from(idStr).reduce((acc, char) => acc + char.charCodeAt(0).toString(16), '').padEnd(32, '0').slice(0, 32);
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+    }
+
+    const targetSubUuid = toValidUuid(subsidiaryId);
 
     // 2. Insert Invoice (With Subsidiary ID & Name)
     const { data: insertedInvoice, error: invErr } = await supabase
@@ -61,7 +70,7 @@ export async function POST(request: Request) {
       .insert({
         invoice_number: invoiceNumber,
         organization_id: validOrgId,
-        subsidiary_id: isValidSubUuid ? subsidiaryId : null,
+        subsidiary_id: targetSubUuid,
         subsidiary_name: subsidiaryName || null,
         client_name: clientName,
         client_email: clientEmail || 'client@entreprise.ci',

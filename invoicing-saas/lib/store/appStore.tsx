@@ -282,8 +282,13 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     subsidiaryName: dbInv.subsidiaryName || existingLocal?.subsidiaryName,
                   };
                 });
-                setInvoices(mergedInvoices);
-                if (userEmail) localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(mergedInvoices));
+
+                const dbInvoiceIds = new Set(dbInvoices.map((i) => i.id));
+                const unSyncedLocalInvoices = localInvoicesArr.filter((loc) => !dbInvoiceIds.has(loc.id));
+                const finalAllInvoices = [...mergedInvoices, ...unSyncedLocalInvoices];
+
+                setInvoices(finalAllInvoices);
+                if (userEmail) localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(finalAllInvoices));
               }
               if (dbClients && dbClients.length > 0) {
                 const localClientsArr: Client[] = savedClients ? JSON.parse(savedClients) : [];

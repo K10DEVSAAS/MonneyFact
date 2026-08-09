@@ -148,19 +148,17 @@ export default function NewInvoicePage() {
       const seqNumber = (invoices.length + 1).toString().padStart(4, '0');
       const generatedNumber = `FAC-${currentYear}-${seqNumber}`;
 
-      const subToUseId = isProPlan
-        ? (selectedSubsidiaryId || (activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined))
-        : undefined;
+      const subToUseId = selectedSubsidiaryId || (activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined);
 
       const chosenSub = subToUseId
-        ? subsidiariesList.find((s) => s.id === subToUseId)
+        ? (subsidiaries || []).find((s) => s.id === subToUseId)
         : undefined;
 
       await addInvoice({
         invoiceNumber: generatedNumber,
         organizationId: organization.id,
         subsidiaryId: subToUseId,
-        subsidiaryName: chosenSub?.name || undefined,
+        subsidiaryName: chosenSub?.name || (activeSubsidiaryId !== 'global' ? (subsidiaries || []).find(s => s.id === activeSubsidiaryId)?.name : undefined),
         clientId: selectedClientId || `cli-temp-${Date.now()}`,
         clientName,
         clientEmail: clientEmail || 'client@entreprise.ci',
@@ -216,8 +214,8 @@ export default function NewInvoicePage() {
               <p className="text-xs text-slate-500">Calcul automatique de la TVA 18% et devises en FCFA</p>
             </div>
 
-            {/* Issuer Branch / Sub-company Selector - ONLY RENDERED FOR BUSINESS PLAN WITH > 0 REGISTERED SUB-COMPANIES */}
-            {isProPlan && subsidiariesList.length > 0 && (
+            {/* Issuer Branch / Sub-company Selector */}
+            {subsidiariesList.length > 0 && (
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
                 <select
