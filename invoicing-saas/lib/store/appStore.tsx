@@ -10,11 +10,40 @@ import { dbService } from '../services/dbService';
 
 const DEFAULT_ORG_UUID = 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
 
-const getValidUuid = (id?: string) => {
-  if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+function getDeterministicUserOrgId(email?: string): string {
+  if (!email || email === 'guest' || email === 'guest@monneyfact.ci') return 'guest-org';
+  const cleanEmail = email.toLowerCase().trim();
+  if (cleanEmail === 'admin@monneyfact.ci') return DEFAULT_ORG_UUID;
+
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < cleanEmail.length; i++) {
+    const ch = cleanEmail.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+  const p1 = Math.abs(h1).toString(16).padStart(8, '0');
+  const p2 = Math.abs(h2).toString(16).padStart(4, '0');
+  const p3 = Math.abs(h1 ^ h2).toString(16).padStart(4, '0');
+  const p4 = Math.abs(h1 + h2).toString(16).padStart(4, '0');
+  const p5 = (Math.abs(h2) * 10007).toString(16).padStart(12, '0').substring(0, 12);
+
+  return `${p1}-${p2}-4${p3.substring(1)}-a${p4.substring(1)}-${p5}`;
+}
+
+const getValidUuid = (id?: string, email?: string) => {
+  if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) && id !== DEFAULT_ORG_UUID) {
     return id;
   }
-  return DEFAULT_ORG_UUID;
+  if (email && email !== 'admin@monneyfact.ci') {
+    return getDeterministicUserOrgId(email);
+  }
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return getDeterministicUserOrgId(email || `usr-${Date.now()}`);
 };
 
 interface AppStoreType {
@@ -96,9 +125,12 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } else {
           userEmail = u.email ? u.email.toLowerCase() : '';
         }
+
+        const uniqueUserOrgId = getDeterministicUserOrgId(userEmail);
+
         currentOrg = {
           ...mockOrganization,
-          id: u.id || mockOrganization.id,
+          id: (u.id && u.id !== DEFAULT_ORG_UUID) ? u.id : uniqueUserOrgId,
           name: u.companyName || u.name || mockOrganization.name,
           email: userEmail || u.email || mockOrganization.email,
           plan: u.plan || 'Pro',
@@ -109,7 +141,11 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const userOrgKey = `monneyfact_org_${userEmail}`;
           const savedOrg = localStorage.getItem(userOrgKey);
           if (savedOrg) {
-            currentOrg = JSON.parse(savedOrg);
+            const parsedOrg = JSON.parse(savedOrg);
+            currentOrg = {
+              ...parsedOrg,
+              id: (parsedOrg.id && parsedOrg.id !== DEFAULT_ORG_UUID) ? parsedOrg.id : uniqueUserOrgId,
+            };
           } else {
             const savedCompList = localStorage.getItem('monneyfact_companies_list');
             if (savedCompList) {
@@ -121,7 +157,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               if (found) {
                 currentOrg = {
                   ...mockOrganization,
-                  id: found.id || mockOrganization.id,
+                  id: (found.id && found.id !== DEFAULT_ORG_UUID) ? found.id : uniqueUserOrgId,
                   name: found.name || found.ownerName || mockOrganization.name,
                   email: userEmail,
                   plan: found.plan || 'Pro',
@@ -185,7 +221,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           try {
             const dbOrg = await dbService.getOrganization(userEmail);
             if (dbOrg && isSubscribed) {
-              currentOrg = { ...currentOrg, ...dbOrg };
+              currentOrg = { ...currentOrg, ...dbOrg, id: (dbOrg.id && dbOrg.id !== DEFAULT_ORG_UUID) ? dbOrg.id : uniqueUserOrgId };
               setOrganization(currentOrg);
               localStorage.setItem(`monneyfact_org_${userEmail}`, JSON.stringify(currentOrg));
             }
@@ -194,7 +230,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
 
-        if (currentOrg.id && isSubscribed) {
+        if (currentOrg.id && currentOrg.id !== 'guest-org' && currentOrg.id !== DEFAULT_ORG_UUID && isSubscribed) {
           try {
             const [dbInvoices, dbClients, dbNotifs] = await Promise.all([
               dbService.getInvoices(currentOrg.id),
@@ -534,9 +570,9 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     plan: PlanType = 'Pro'
   ) => {
     const monthlySubscription = PLAN_PRICES[plan] || (plan === 'Pro' ? 5000 : 1000);
-    const newOrgId = getValidUuid();
-    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
     const cleanEmail = email.toLowerCase().trim();
+    const newOrgId = getDeterministicUserOrgId(cleanEmail);
+    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
 
     const newOrg: Organization = {
       id: newOrgId,
