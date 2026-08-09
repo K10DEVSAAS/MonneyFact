@@ -143,6 +143,54 @@ export interface DashboardStats {
   };
 }
 
+export interface CompanyDashboardResult {
+  companyId: string;
+  companyName: string;
+  totalRevenue: number;
+  totalPaid: number;
+  totalUnpaid: number;
+  totalInvoices: number;
+  totalPayments: number;
+  monthlyRevenue: number;
+  invoiceCounts: {
+    total: number;
+    draft: number;
+    sent: number;
+    paid: number;
+    overdue: number;
+  };
+  recentInvoices: Invoice[];
+}
+
+export interface CompanyBreakdownItem {
+  companyId: string;
+  companyName: string;
+  city?: string;
+  totalRevenue: number;
+  totalPaid: number;
+  totalUnpaid: number;
+  invoiceCount: number;
+}
+
+export interface MainCompanyDashboardResult {
+  mainCompanyId: string;
+  totalRevenue: number;
+  totalPaid: number;
+  totalUnpaid: number;
+  totalInvoices: number;
+  totalPayments: number;
+  monthlyRevenue: number;
+  invoiceCounts: {
+    total: number;
+    draft: number;
+    sent: number;
+    paid: number;
+    overdue: number;
+  };
+  companyBreakdown: CompanyBreakdownItem[];
+  recentInvoices: Invoice[];
+}
+
 export interface AppNotification {
   id: string;
   title: string;

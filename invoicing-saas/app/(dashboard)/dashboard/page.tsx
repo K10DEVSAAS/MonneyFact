@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function DashboardPage() {
-  const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId, subsidiaries } = useAppStore();
+  const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId, subsidiaries, mainCompanyDashboard } = useAppStore();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -78,7 +78,9 @@ export default function DashboardPage() {
               Bonjour, {user?.name || organization.name} ! 👋
             </h2>
             <p className="text-zinc-400 text-sm max-w-xl">
-              Voici l&apos;état récapitulatif de votre activité de facturation et d&apos;encaissement en FCFA.
+              {activeSubsidiaryId === 'global'
+                ? 'Vue Globale Consolidée : synthèse financière agrégée de l\'ensemble des sous-entreprises et du siège.'
+                : `Tableau de bord spécifique à l'établissement ${activeSub?.name || ''}.`}
             </p>
           </div>
 
@@ -165,6 +167,81 @@ export default function DashboardPage() {
       {canViewAnalytics ? (
         <>
           <StatCards stats={stats} />
+
+          {/* Consolidated Multi-Branch Breakdown Table (Only visible in Global View) */}
+          {activeSubsidiaryId === 'global' && mainCompanyDashboard.companyBreakdown.length > 0 && (
+            <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    📊 Ventilation Consolidée par Établissement ({mainCompanyDashboard.companyBreakdown.length})
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Chiffre d&apos;affaires et encaissements agrégés par sous-entreprise et siège social.
+                  </p>
+                </div>
+                <Link
+                  href="/subsidiaries"
+                  className="px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 text-xs font-extrabold rounded-xl hover:bg-orange-100 transition-colors"
+                >
+                  Gérer les agences
+                </Link>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4 rounded-l-xl">Établissement</th>
+                      <th className="py-3 px-4">Localisation</th>
+                      <th className="py-3 px-4 text-right">CA Total (TTC)</th>
+                      <th className="py-3 px-4 text-right">Encaissements</th>
+                      <th className="py-3 px-4 text-right">Impayés</th>
+                      <th className="py-3 px-4 text-center">Factures</th>
+                      <th className="py-3 px-4 text-right rounded-r-xl">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {mainCompanyDashboard.companyBreakdown.map((item) => (
+                      <tr key={item.companyId} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          {item.companyName}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500">
+                          {item.city || 'Abidjan'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-extrabold text-slate-900">
+                          {item.totalRevenue.toLocaleString()} FCFA
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600">
+                          {item.totalPaid.toLocaleString()} FCFA
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-600">
+                          {item.totalUnpaid.toLocaleString()} FCFA
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-mono font-bold text-orange-600">
+                          {item.invoiceCount}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {item.companyId !== 'main-headquarters' ? (
+                            <button
+                              onClick={() => setActiveSubsidiaryId(item.companyId)}
+                              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold rounded-lg transition-all"
+                            >
+                              Filtrer cette agence
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-bold">Siège</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <RevenueChart />
         </>
       ) : (

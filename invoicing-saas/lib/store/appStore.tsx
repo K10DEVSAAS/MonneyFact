@@ -1,12 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Invoice, Client, Organization, DashboardStats, AppNotification, PlanType, Subsidiary } from '../types/invoice';
+import { Invoice, Client, Organization, DashboardStats, AppNotification, PlanType, Subsidiary, CompanyDashboardResult, MainCompanyDashboardResult } from '../types/invoice';
 import { mockOrganization } from '../data/mockData';
 import { RegisteredCompany } from '../data/mockAdminData';
 import { supabase } from '../supabase/client';
 import { PLAN_PRICES } from '../services/subscriptionService';
 import { dbService } from '../services/dbService';
+import { companyDashboardService } from '../services/companyDashboardService';
 
 const DEFAULT_ORG_UUID = 'e8b8c2a1-94f3-4e67-b8a9-0d1e2f3a4b5c';
 
@@ -52,6 +53,9 @@ interface AppStoreType {
   clients: Client[];
   subsidiaries: Subsidiary[];
   stats: DashboardStats;
+  mainCompanyDashboard: MainCompanyDashboardResult;
+  getCompanyDashboard: (companyId?: string) => Promise<CompanyDashboardResult>;
+  getMainCompanyDashboard: () => Promise<MainCompanyDashboardResult>;
   companyNotifications: AppNotification[];
   adminNotifications: AppNotification[];
   registeredCompanies: RegisteredCompany[];
@@ -524,6 +528,104 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     },
   };
 
+  const getCompanyDashboard = async (targetCompanyId?: string): Promise<CompanyDashboardResult> => {
+    const compId = targetCompanyId || activeSubsidiaryId;
+    return await companyDashboardService.getCompanyDashboard(
+      compId,
+      organization.id,
+      invoices,
+      clients,
+      subsidiaries
+    );
+  };
+
+  const getMainCompanyDashboard = async (): Promise<MainCompanyDashboardResult> => {
+    return await companyDashboardService.getMainCompanyDashboard(
+      organization.id,
+      invoices,
+      clients,
+      subsidiaries
+    );
+  };
+
+  const mainCompanyDashboard: MainCompanyDashboardResult = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const paidInvoices = invoices.filter((inv) => inv.status === 'paid');
+    const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const totalUnpaid = invoices
+      .filter((inv) => inv.status === 'sent' || inv.status === 'overdue')
+      .reduce((sum, inv) => sum + (inv.total || 0), 0);
+
+    const monthlyRevenue = invoices
+      .filter((inv) => {
+        if (!inv.issueDate) return false;
+        const parts = inv.issueDate.split('-');
+        const y = parts.length === 3 ? parseInt(parts[0], 10) : new Date(inv.issueDate).getFullYear();
+        const m = parts.length === 3 ? parseInt(parts[1], 10) - 1 : new Date(inv.issueDate).getMonth();
+        return m === currentMonth && y === currentYear;
+      })
+      .reduce((sum, inv) => sum + (inv.total || 0), 0);
+
+    const companyBreakdown = subsidiaries.map((sub) => {
+      const subNameClean = sub.name.toLowerCase().trim();
+      const subInvoices = invoices.filter((i) => {
+        if (i.subsidiaryId && i.subsidiaryId === sub.id) return true;
+        if (subNameClean && i.subsidiaryName && i.subsidiaryName.toLowerCase().trim() === subNameClean) return true;
+        return false;
+      });
+
+      return {
+        companyId: sub.id,
+        companyName: sub.name,
+        city: sub.city,
+        totalRevenue: subInvoices.reduce((acc, inv) => acc + (inv.total || 0), 0),
+        totalPaid: subInvoices.filter((i) => i.status === 'paid').reduce((acc, inv) => acc + (inv.total || 0), 0),
+        totalUnpaid: subInvoices
+          .filter((i) => i.status === 'sent' || i.status === 'overdue')
+          .reduce((acc, inv) => acc + (inv.total || 0), 0),
+        invoiceCount: subInvoices.length,
+      };
+    });
+
+    const hqInvoices = invoices.filter((i) => !i.subsidiaryId && !i.subsidiaryName);
+    if (hqInvoices.length > 0 || companyBreakdown.length === 0) {
+      companyBreakdown.unshift({
+        companyId: 'main-headquarters',
+        companyName: `${organization.name} (Siège Principal)`,
+        city: 'Abidjan',
+        totalRevenue: hqInvoices.reduce((acc, inv) => acc + (inv.total || 0), 0),
+        totalPaid: hqInvoices.filter((i) => i.status === 'paid').reduce((acc, inv) => acc + (inv.total || 0), 0),
+        totalUnpaid: hqInvoices
+          .filter((i) => i.status === 'sent' || i.status === 'overdue')
+          .reduce((acc, inv) => acc + (inv.total || 0), 0),
+        invoiceCount: hqInvoices.length,
+      });
+    }
+
+    return {
+      mainCompanyId: organization.id,
+      totalRevenue,
+      totalPaid,
+      totalUnpaid,
+      totalInvoices: invoices.length,
+      totalPayments: paidInvoices.length,
+      monthlyRevenue,
+      invoiceCounts: {
+        total: invoices.length,
+        draft: invoices.filter((i) => i.status === 'draft').length,
+        sent: invoices.filter((i) => i.status === 'sent').length,
+        paid: invoices.filter((i) => i.status === 'paid').length,
+        overdue: invoices.filter((i) => i.status === 'overdue').length,
+      },
+      companyBreakdown,
+      recentInvoices: invoices.slice(0, 10),
+    };
+  }, [organization.id, organization.name, invoices, subsidiaries]);
+
   const unreadCompanyNotifCount = companyNotifications.filter((n) => !n.read).length;
   const unreadAdminNotifCount = adminNotifications.filter((n) => !n.read).length;
 
@@ -887,6 +989,9 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         clients: contextClients,
         subsidiaries,
         stats,
+        mainCompanyDashboard,
+        getCompanyDashboard,
+        getMainCompanyDashboard,
         companyNotifications,
         adminNotifications,
         registeredCompanies,
