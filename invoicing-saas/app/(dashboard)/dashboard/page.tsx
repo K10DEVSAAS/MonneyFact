@@ -16,11 +16,13 @@ export default function DashboardPage() {
   const { hasPermission } = usePermissions();
 
   console.log('[DASHBOARD] PAGE MOUNTED');
-  console.log('[DASHBOARD] AUTH USER ID:', user?.id);
-  console.log('[DASHBOARD] AUTH EMAIL:', user?.email);
-  console.log('[DASHBOARD] PROFILE ID:', user?.id);
-  console.log('[DASHBOARD] ORGANIZATION ID:', user?.organizationId || organization?.id);
-  console.log('[DASHBOARD] ORGANIZATION NAME:', user?.companyName || organization?.name);
+  console.log('[FINAL-TEST] AUTH USER ID:', user?.id);
+  console.log('[FINAL-TEST] AUTH EMAIL:', user?.email);
+  console.log('[FINAL-TEST] PROFILE ID:', user?.id);
+  console.log('[FINAL-TEST] PROFILE EMAIL:', user?.email);
+  console.log('[FINAL-TEST] ORGANIZATION ID:', user?.organizationId || organization?.id);
+  console.log('[FINAL-TEST] ORGANIZATION NAME:', user?.companyName || organization?.name);
+  console.log('[FINAL-TEST] DASHBOARD COMPANY:', user?.companyName || organization?.name);
 
   const isPro = organization.plan === 'Pro';
   const isZeroState = invoices.length === 0;
