@@ -48,6 +48,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoadingSession: boolean;
   loginAsClient: (email?: string, password?: string, isOAuth?: boolean) => Promise<{ success: boolean; error?: string }>;
+  syncOAuthUser: (userSession: UserSession) => void;
   loginAsAdmin: () => void;
   loginAsCollaborator: (
     name: string,
@@ -598,6 +599,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const syncOAuthUser = (userSession: UserSession) => {
+    setUser(userSession);
+    setIsLoadingSession(false);
+    localStorage.setItem('monneyfact_active_user', JSON.stringify(userSession));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('monneyfact_auth_change'));
+    }
+  };
+
   const logout = async () => {
     setUser(null);
     setIsLoadingSession(false);
@@ -624,6 +634,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated,
         isLoadingSession,
         loginAsClient,
+        syncOAuthUser,
         loginAsAdmin,
         loginAsCollaborator,
         registerClient,

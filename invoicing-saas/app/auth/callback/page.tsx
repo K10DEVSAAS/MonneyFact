@@ -4,12 +4,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Receipt, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import { useAuth } from '@/lib/auth/authContext';
+import { useAuth, UserSession } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const { loginAsClient, loginAsAdmin } = useAuth();
+  const { syncOAuthUser, loginAsAdmin } = useAuth();
   const { initializeZeroAccount } = useAppStore();
   const [statusMessage, setStatusMessage] = useState('Validation de votre authentification Google...');
   const processingRef = useRef(false);
@@ -17,173 +17,189 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let isSubscribed = true;
 
-    const processUserBinding = async (session: any) => {
-      // CORRECTION 12 — PROTECTION CONTRE DOUBLE EXÉCUTION
-      if (processingRef.current) return false;
+    // TIMEOUT DE SÉCURITÉ GLOBAL DE 10 SECONDES
+    const globalTimeoutId = setTimeout(() => {
+      if (!isSubscribed) return;
+      console.error('[OAUTH] TIMEOUT 10S EXPIRED : Le serveur d\'authentification ne répond pas.');
+      setStatusMessage('Le serveur d’authentification ne répond pas. Veuillez réessayer.');
+      processingRef.current = false;
+      setTimeout(() => router.replace('/login'), 3000);
+    }, 10000);
+
+    const processOAuthFlow = async () => {
+      if (processingRef.current) return;
       processingRef.current = true;
 
+      console.log('[OAUTH] START');
+
       try {
-        // CORRECTION 1 — getSession()
-        console.log('[OAUTH] getSession terminé', {
-          hasSession: !!session,
-          userId: session?.user?.id,
-        });
+        // 1. RECUPERATION DE SESSION SUPABASE AUTH
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          clearTimeout(globalTimeoutId);
+          console.error('[OAUTH] ERREUR SESSION:', sessionError);
+          setStatusMessage(`Erreur session : ${sessionError.message}`);
+          processingRef.current = false;
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
+        }
 
         if (!session?.user) {
-          console.error('[OAUTH] Aucune session utilisateur');
+          clearTimeout(globalTimeoutId);
+          console.error('[OAUTH] Aucune session utilisateur Google disponible');
           setStatusMessage('Aucune session Google valide.');
+          processingRef.current = false;
           setTimeout(() => router.replace('/login'), 3000);
-          return false;
+          return;
         }
 
-        // CORRECTION 2 — Utilisateur
+        console.log('[OAUTH] SESSION_OK', { userId: session.user.id, email: session.user.email });
+
         const user = session.user;
         const userId = user.id;
-        const email = user.email?.trim().toLowerCase() || '';
-
-        console.log('[OAUTH] USER:', {
-          userId,
-          email,
-        });
+        const email = (user.email || '').trim().toLowerCase();
 
         if (!email) {
-          console.error('[OAUTH] Email utilisateur manquant');
+          clearTimeout(globalTimeoutId);
+          console.error('[OAUTH] Email manquant dans la session');
           setStatusMessage('Impossible de récupérer votre adresse email Google.');
+          processingRef.current = false;
           setTimeout(() => router.replace('/login'), 3000);
-          return false;
+          return;
         }
 
-        setStatusMessage('Création et sécurisation de votre espace entreprise...');
-
-        // SUPER ADMIN EXCEPTION
+        // CAS SPECIFIQUE SUPER ADMIN
         if (email === 'admin@monneyfact.ci') {
-          console.log('[OAUTH] SUPER ADMIN DÉTECTÉ');
+          clearTimeout(globalTimeoutId);
+          console.log('[OAUTH] SUPER ADMIN DETECTED');
           loginAsAdmin();
-          return true;
+          router.replace('/admin');
+          return;
         }
 
         const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Entreprise';
 
-        // CORRECTION 3 — Profil
+        // 2. RECHERCHE DU PROFIL PAR session.user.id (IDENTIFIANT SUPABASE AUTH EXCLUSIF)
+        console.log('[OAUTH] PROFILE_QUERY_START');
         const { data: existingProfile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .maybeSingle();
 
-        console.log('[OAUTH] PROFILE:', {
-          found: !!existingProfile,
-          error: profileError?.message,
-          organizationId: existingProfile?.organization_id,
-        });
+        console.log('[OAUTH] PROFILE_QUERY_END', { found: !!existingProfile, organizationId: existingProfile?.organization_id });
 
         if (profileError) {
+          clearTimeout(globalTimeoutId);
           console.error('[OAUTH] ERREUR PROFILE:', profileError);
           setStatusMessage(`Erreur profil : ${profileError.message}`);
-          return false;
+          processingRef.current = false;
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
         }
 
-        // CORRECTION 4 — Organisation
+        // 3. RECHERCHE DE L'ORGANISATION PAR EMAIL NORMALISÉ
+        console.log('[OAUTH] ORGANIZATION_QUERY_START');
         const { data: existingOrg, error: orgError } = await supabase
           .from('organizations')
           .select('*')
           .eq('email', email)
           .maybeSingle();
 
-        console.log('[OAUTH] ORGANIZATION:', {
-          found: !!existingOrg,
-          error: orgError?.message,
-          organizationId: existingOrg?.id,
-          organizationEmail: existingOrg?.email,
-        });
+        console.log('[OAUTH] ORGANIZATION_QUERY_END', { found: !!existingOrg, orgId: existingOrg?.id });
 
         if (orgError) {
+          clearTimeout(globalTimeoutId);
           console.error('[OAUTH] ERREUR ORGANIZATION:', orgError);
           setStatusMessage(`Erreur organisation : ${orgError.message}`);
-          return false;
+          processingRef.current = false;
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
         }
 
+        let resolvedOrgId: string | null = null;
         let resolvedOrgName: string | null = existingOrg?.name || null;
 
-        // CORRECTION 5 — CAS PROFIL EXISTANT AVEC ORGANIZATION_ID
+        // CAS A : Profil existant avec organization_id déjà renseigné
         if (existingProfile && existingProfile.organization_id) {
-          console.log('[OAUTH] CAS 4 — Profil existant déjà rattaché à organization_id:', existingProfile.organization_id);
+          resolvedOrgId = existingProfile.organization_id;
           resolvedOrgName = existingOrg?.name || `${fullName} Enterprise`;
         }
-        // CORRECTION 5 (SUITE) — CAS PROFIL EXISTANT SANS ORGANIZATION_ID
+        // CAS B : Profil existant mais organization_id IS NULL
         else if (existingProfile && !existingProfile.organization_id) {
-          console.log('[OAUTH] CAS 3 — Profil existant avec organization_id NULL');
           if (existingOrg) {
-            const { data: updatedProfile, error: updateProfileError } = await supabase
+            resolvedOrgId = existingOrg.id;
+            resolvedOrgName = existingOrg.name;
+
+            const { data: updatedProf, error: updateProfErr } = await supabase
               .from('profiles')
-              .update({
-                organization_id: existingOrg.id,
-              })
+              .update({ organization_id: existingOrg.id })
               .eq('id', userId)
               .select('*')
               .single();
 
-            console.log('[OAUTH] PROFILE RATTACHÉ:', {
-              organizationId: updatedProfile?.organization_id,
-              error: updateProfileError?.message,
-            });
-
-            if (updateProfileError) {
-              console.error('[OAUTH] ERREUR RATTACHEMENT:', updateProfileError);
-              setStatusMessage(`Erreur rattachement : ${updateProfileError.message}`);
-              return false;
+            if (updateProfErr || !updatedProf) {
+              clearTimeout(globalTimeoutId);
+              console.error('[OAUTH] ERREUR RATTACHEMENT PROFIL:', updateProfErr);
+              setStatusMessage(`Erreur rattachement organisation : ${updateProfErr?.message}`);
+              processingRef.current = false;
+              setTimeout(() => router.replace('/login'), 3000);
+              return;
             }
-            resolvedOrgName = existingOrg.name;
           } else {
             // Créer l'organisation si aucune n'existe avec cet email
-            const companyName = fullName.includes(' ')
-              ? `${fullName.split(' ')[0]} Enterprise`
-              : `${fullName} SARL`;
-
-            const { data: newOrg, error: createOrgError } = await supabase
+            const companyName = fullName.includes(' ') ? `${fullName.split(' ')[0]} Enterprise` : `${fullName} SARL`;
+            const { data: newOrg, error: createOrgErr } = await supabase
               .from('organizations')
               .insert({
                 name: companyName,
                 email,
                 address: "Abidjan, Côte d'Ivoire",
-                phone: '+225 07 00 00 00 00',
-                currency: 'FCFA',
+                phone: "+225 07 00 00 00 00",
+                currency: "FCFA",
                 default_tax_rate: 18,
-                plan: 'Pro',
-                status: 'active',
+                plan: "Pro",
+                status: "active",
                 activated_at: new Date().toISOString(),
                 expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               })
               .select('*')
               .single();
 
-            if (createOrgError) {
-              console.error('[OAUTH] ERREUR CRÉATION ORGANISATION:', createOrgError);
-              setStatusMessage(`Erreur création organisation : ${createOrgError.message}`);
-              return false;
+            if (createOrgErr || !newOrg) {
+              clearTimeout(globalTimeoutId);
+              console.error('[OAUTH] ERREUR CRÉATION ORGANISATION:', createOrgErr);
+              setStatusMessage(`Erreur création organisation : ${createOrgErr?.message}`);
+              processingRef.current = false;
+              setTimeout(() => router.replace('/login'), 3000);
+              return;
             }
 
-            const { data: updatedProfile, error: updateProfileError } = await supabase
-              .from('profiles')
-              .update({
-                organization_id: newOrg.id,
-              })
-              .eq('id', userId)
-              .select('*')
-              .single();
-
-            if (updateProfileError) {
-              console.error('[OAUTH] ERREUR RATTACHEMENT:', updateProfileError);
-              setStatusMessage(`Erreur rattachement : ${updateProfileError.message}`);
-              return false;
-            }
+            resolvedOrgId = newOrg.id;
             resolvedOrgName = newOrg.name;
+
+            const { error: updateProfErr } = await supabase
+              .from('profiles')
+              .update({ organization_id: newOrg.id })
+              .eq('id', userId);
+
+            if (updateProfErr) {
+              clearTimeout(globalTimeoutId);
+              console.error('[OAUTH] ERREUR RATTACHEMENT PROFIL:', updateProfErr);
+              setStatusMessage(`Erreur rattachement organisation : ${updateProfErr.message}`);
+              processingRef.current = false;
+              setTimeout(() => router.replace('/login'), 3000);
+              return;
+            }
           }
         }
-        // CORRECTION 6 — PROFIL INEXISTANT + ORGANISATION EXISTANTE
+        // CAS C : Profil inexistant + Organisation existante
         else if (!existingProfile && existingOrg) {
-          console.log('[OAUTH] CAS 2 — Profil inexistant + Organisation existante par email');
-          const { data: createdProfile, error: createProfileError } = await supabase
+          resolvedOrgId = existingOrg.id;
+          resolvedOrgName = existingOrg.name;
+
+          const { data: createdProf, error: createProfErr } = await supabase
             .from('profiles')
             .insert({
               id: userId,
@@ -196,44 +212,48 @@ export default function AuthCallbackPage() {
             .select('*')
             .single();
 
-          if (createProfileError) {
-            console.error('[OAUTH] ERREUR CRÉATION PROFIL:', createProfileError);
-            setStatusMessage(`Erreur création profil : ${createProfileError.message}`);
-            return false;
+          if (createProfErr || !createdProf) {
+            clearTimeout(globalTimeoutId);
+            console.error('[OAUTH] ERREUR CRÉATION PROFIL:', createProfErr);
+            setStatusMessage(`Erreur création profil : ${createProfErr?.message}`);
+            processingRef.current = false;
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
           }
-          resolvedOrgName = existingOrg.name;
         }
-        // CORRECTION 7 & 8 — PROFIL INEXISTANT + ORGANISATION INEXISTANTE
+        // CAS D : Profil inexistant + Organisation inexistante
         else if (!existingProfile && !existingOrg) {
-          console.log('[OAUTH] CAS 1 — Profil inexistant + Organisation inexistante');
-          const companyName = fullName.includes(' ')
-            ? `${fullName.split(' ')[0]} Enterprise`
-            : `${fullName} SARL`;
-
-          const { data: newOrg, error: createOrgError } = await supabase
+          const companyName = fullName.includes(' ') ? `${fullName.split(' ')[0]} Enterprise` : `${fullName} SARL`;
+          const { data: newOrg, error: createOrgErr } = await supabase
             .from('organizations')
             .insert({
               name: companyName,
               email,
               address: "Abidjan, Côte d'Ivoire",
-              phone: '+225 07 00 00 00 00',
-              currency: 'FCFA',
+              phone: "+225 07 00 00 00 00",
+              currency: "FCFA",
               default_tax_rate: 18,
-              plan: 'Pro',
-              status: 'active',
+              plan: "Pro",
+              status: "active",
               activated_at: new Date().toISOString(),
               expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             })
             .select('*')
             .single();
 
-          if (createOrgError) {
-            console.error('[OAUTH] ERREUR CRÉATION ORGANISATION:', createOrgError);
-            setStatusMessage(`Erreur création organisation : ${createOrgError.message}`);
-            return false;
+          if (createOrgErr || !newOrg) {
+            clearTimeout(globalTimeoutId);
+            console.error('[OAUTH] ERREUR CRÉATION ORGANISATION:', createOrgErr);
+            setStatusMessage(`Erreur création organisation : ${createOrgErr?.message}`);
+            processingRef.current = false;
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
           }
 
-          const { data: createdProfile, error: createProfileError } = await supabase
+          resolvedOrgId = newOrg.id;
+          resolvedOrgName = newOrg.name;
+
+          const { data: createdProf, error: createProfErr } = await supabase
             .from('profiles')
             .insert({
               id: userId,
@@ -246,58 +266,72 @@ export default function AuthCallbackPage() {
             .select('*')
             .single();
 
-          if (createProfileError) {
-            console.error('[OAUTH] ERREUR CRÉATION PROFIL:', createProfileError);
-            setStatusMessage(`Erreur création profil : ${createProfileError.message}`);
-            return false;
+          if (createProfErr || !createdProf) {
+            clearTimeout(globalTimeoutId);
+            console.error('[OAUTH] ERREUR CRÉATION PROFIL:', createProfErr);
+            setStatusMessage(`Erreur création profil : ${createProfErr?.message}`);
+            processingRef.current = false;
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
           }
-          resolvedOrgName = newOrg.name;
         }
 
-        // CORRECTION 9 — FINAL PROFILE
+        console.log('[OAUTH] BINDING_COMPLETE', { resolvedOrgId, resolvedOrgName });
+
+        // 4. VÉRIFICATION DU PROFIL FINAL
         const { data: finalProfile, error: finalProfileError } = await supabase
           .from('profiles')
           .select('id, email, full_name, role, organization_id, plan')
           .eq('id', userId)
           .single();
 
-        console.log('[OAUTH] FINAL PROFILE:', {
-          profile: finalProfile,
-          error: finalProfileError?.message,
-        });
-
-        if (finalProfileError) {
+        if (finalProfileError || !finalProfile) {
+          clearTimeout(globalTimeoutId);
           console.error('[OAUTH] ERREUR FINAL PROFILE:', finalProfileError);
-          setStatusMessage(`Erreur validation profil : ${finalProfileError.message}`);
-          return false;
+          setStatusMessage(`Erreur validation profil : ${finalProfileError?.message}`);
+          processingRef.current = false;
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
         }
 
         if (finalProfile.role !== 'super_admin' && !finalProfile.organization_id) {
-          console.error('[OAUTH] PROFIL ORPHELIN');
+          clearTimeout(globalTimeoutId);
+          console.error('[OAUTH] PROFIL ORPHELIN DETECTE');
           setStatusMessage('Votre compte n’est associé à aucune entreprise.');
-          return false;
+          processingRef.current = false;
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
         }
 
+        console.log('[OAUTH] FINAL_PROFILE_OK', { finalProfile });
+
+        // 5. SYNCHRONISATION SYNCHRONE DES ETATS EN MEMOIRE SANS MOT DE PASSE
         if (resolvedOrgName) {
           initializeZeroAccount(resolvedOrgName, email);
         }
 
-        // CORRECTION 10 & 13 — LOGIN AS CLIENT ET REDIRECTION DASHBOARD
-        console.log('[OAUTH] AVANT loginAsClient');
-        await loginAsClient(email, undefined, true);
-        console.log('[OAUTH] loginAsClient TERMINÉ');
+        const activeUser: UserSession = {
+          id: userId,
+          name: finalProfile.full_name || fullName,
+          email,
+          role: 'client',
+          companyName: resolvedOrgName || `${fullName} Enterprise`,
+          plan: (finalProfile.plan as any) || 'Pro',
+        };
 
+        syncOAuthUser(activeUser);
+
+        clearTimeout(globalTimeoutId);
+        console.log('[OAUTH] REDIRECT_DASHBOARD');
+
+        // REDIRECTION ETANCHE DIRECTE VERS /DASHBOARD
         router.replace('/dashboard');
-        return true;
       } catch (err) {
-        // CORRECTION 14 — FIN D'ERREUR SANS SPINNER INFINI
+        clearTimeout(globalTimeoutId);
         console.error('[OAUTH] ERREUR FATALE:', err);
-        setStatusMessage(
-          err instanceof Error
-            ? err.message
-            : 'Une erreur est survenue pendant la connexion.'
-        );
-        return false;
+        setStatusMessage(err instanceof Error ? err.message : 'Une erreur est survenue pendant la connexion Google.');
+        processingRef.current = false;
+        setTimeout(() => router.replace('/login'), 3000);
       }
     };
 
@@ -306,6 +340,7 @@ export default function AuthCallbackPage() {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
+          clearTimeout(globalTimeoutId);
           console.error('[OAUTH] getSession error:', sessionError.message);
           setStatusMessage(`Erreur session : ${sessionError.message}`);
           setTimeout(() => router.replace('/login'), 3000);
@@ -313,17 +348,17 @@ export default function AuthCallbackPage() {
         }
 
         if (session && session.user) {
-          await processUserBinding(session);
+          await processOAuthFlow();
           return;
         }
 
-        // CORRECTION 11 — ONAUTHSTATECHANGE UNIQUEMENT SI PAS DE SESSION INITIALE
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
           if (!isSubscribed) return;
 
           if (currentSession && currentSession.user) {
-            await processUserBinding(currentSession);
+            await processOAuthFlow();
           } else if (event === 'SIGNED_OUT') {
+            clearTimeout(globalTimeoutId);
             router.replace('/login');
           }
         });
@@ -332,12 +367,10 @@ export default function AuthCallbackPage() {
           subscription.unsubscribe();
         };
       } catch (err) {
-        console.error('[OAUTH] ERREUR FATALE HANDLER:', err);
-        setStatusMessage(
-          err instanceof Error
-            ? err.message
-            : 'Une erreur est survenue pendant la connexion.'
-        );
+        clearTimeout(globalTimeoutId);
+        console.error('[OAUTH] ERREUR HANDLER:', err);
+        setStatusMessage(err instanceof Error ? err.message : 'Une erreur est survenue pendant la connexion.');
+        setTimeout(() => router.replace('/login'), 3000);
       }
     };
 
@@ -345,8 +378,9 @@ export default function AuthCallbackPage() {
 
     return () => {
       isSubscribed = false;
+      clearTimeout(globalTimeoutId);
     };
-  }, [router, loginAsClient, loginAsAdmin, initializeZeroAccount]);
+  }, [router, syncOAuthUser, loginAsAdmin, initializeZeroAccount]);
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 text-white">
