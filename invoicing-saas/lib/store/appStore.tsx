@@ -664,27 +664,22 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
-    const created: Invoice = {
+    const payload = {
       ...newInv,
       id: generatedId,
       subsidiaryId: targetSubId,
       subsidiaryName: targetSubName,
       paymentToken: generatedId,
+      organizationName: organization.name,
+      organizationId: organization.id,
       createdAt: new Date().toISOString(),
     };
-
-    const updated = [created, ...invoices];
-    saveInvoicesForUser(updated);
 
     try {
       const response = await fetch('/api/invoices/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...created,
-          paymentToken: generatedId,
-          organizationName: organization.name,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const resJson = await response.json();
@@ -693,16 +688,29 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.error('[API INVOICE CREATE ERROR]', errorMsg);
         throw new Error(errorMsg);
       }
+
+      const returnedInvoice = resJson.invoice;
+      const created: Invoice = {
+        ...newInv,
+        id: returnedInvoice?.id || generatedId,
+        subsidiaryId: targetSubId,
+        subsidiaryName: targetSubName,
+        paymentToken: resJson.token || generatedId,
+        createdAt: returnedInvoice?.created_at || payload.createdAt,
+      };
+
+      const updated = [created, ...invoices];
+      saveInvoicesForUser(updated);
+
+      addCompanyNotif(
+        'Nouvelle Facture Créée',
+        `Facture ${created.invoiceNumber} (${created.total.toLocaleString()} FCFA) générée pour ${created.clientName}.`,
+        'success'
+      );
     } catch (apiErr) {
       console.error('[DEBUG STORE ERROR] /api/invoices/create fetch error:', apiErr);
       throw apiErr;
     }
-
-    addCompanyNotif(
-      'Nouvelle Facture Créée',
-      `Facture ${created.invoiceNumber} (${created.total.toLocaleString()} FCFA) générée pour ${created.clientName}.`,
-      'success'
-    );
   };
 
   const updateInvoiceStatus = async (id: string, status: Invoice['status']) => {

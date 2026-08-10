@@ -16,6 +16,10 @@ export default function DashboardPage() {
   const { hasPermission } = usePermissions();
 
   console.log('[DASHBOARD] PAGE MOUNTED');
+  console.log('[DASHBOARD] USER ID:', user?.id);
+  console.log('[DASHBOARD] EMAIL:', user?.email);
+  console.log('[DASHBOARD] ORGANIZATION ID:', user?.organizationId || organization?.id);
+  console.log('[DASHBOARD] ORGANIZATION NAME:', user?.companyName || organization?.name);
   console.log('[FINAL-TEST] AUTH USER ID:', user?.id);
   console.log('[FINAL-TEST] AUTH EMAIL:', user?.email);
   console.log('[FINAL-TEST] PROFILE ID:', user?.id);

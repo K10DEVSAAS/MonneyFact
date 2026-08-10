@@ -64,34 +64,60 @@ export async function POST(request: Request) {
 
     const targetSubUuid = toValidUuid(subsidiaryId);
 
-    // 2. Insert Invoice (With Subsidiary ID & Name)
-    const { data: insertedInvoice, error: invErr } = await supabase
-      .from('invoices')
-      .insert({
-        invoice_number: invoiceNumber,
-        organization_id: validOrgId,
-        subsidiary_id: targetSubUuid,
-        subsidiary_name: subsidiaryName || null,
-        client_name: clientName,
-        client_email: clientEmail || 'client@entreprise.ci',
-        status: status || 'sent',
-        issue_date: issueDate,
-        due_date: dueDate,
-        subtotal: Number(subtotal),
-        tax_rate: Number(taxRate || 18),
-        tax_amount: Number(taxAmount),
-        total: Number(total),
-        notes: notes || '',
-        observations: observations || '',
-        signature_url: signatureUrl || '',
-        payment_token: token,
-      })
-      .select('*')
-      .single();
+    // 2. Insert Invoice (Resilient schema-matching)
+    let insertPayload: Record<string, any> = {
+      invoice_number: invoiceNumber,
+      organization_id: validOrgId,
+      subsidiary_id: targetSubUuid,
+      subsidiary_name: subsidiaryName || null,
+      client_name: clientName,
+      client_email: clientEmail || 'client@entreprise.ci',
+      status: status || 'sent',
+      issue_date: issueDate,
+      due_date: dueDate,
+      subtotal: Number(subtotal),
+      tax_rate: Number(taxRate || 18),
+      tax_amount: Number(taxAmount),
+      total: Number(total),
+      notes: notes || '',
+      observations: observations || '',
+      signature_url: signatureUrl || '',
+      payment_token: token,
+    };
 
-    if (invErr) {
+    let insertedInvoice: any = null;
+    let invErr: any = null;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert(insertPayload)
+        .select('*')
+        .single();
+
+      if (!error && data) {
+        insertedInvoice = data;
+        invErr = null;
+        break;
+      }
+
+      if (error && error.code === 'PGRST204' && error.message.includes("Could not find the '")) {
+        const match = error.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1]) {
+          const missingCol = match[1];
+          console.warn(`[API INVOICE CREATE] Column '${missingCol}' missing from invoices schema. Retrying without it.`);
+          delete insertPayload[missingCol];
+          continue;
+        }
+      }
+
+      invErr = error;
+      break;
+    }
+
+    if (invErr || !insertedInvoice) {
       console.error('[API INVOICE CREATE] Invoice insert error:', invErr);
-      return NextResponse.json({ success: false, error: invErr.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: invErr?.message || 'Erreur insertion' }, { status: 500 });
     }
 
     // 3. Insert Items

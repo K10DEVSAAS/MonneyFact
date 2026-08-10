@@ -59,7 +59,8 @@ export default function AuthCallbackPage() {
         const userId = user.id;
         const email = (user.email || '').trim().toLowerCase();
 
-        // ETAPE 1 — AUDIT IDENTITY SUPABASE AUTH
+        console.log('[OAUTH] SESSION', { session });
+        console.log('[OAUTH] USER', { userId, email });
         console.log('[IDENTITY] AUTH USER ID:', userId);
         console.log('[IDENTITY] AUTH EMAIL:', email);
         console.log('[OAUTH] SESSION_OK', { userId, email });
@@ -95,6 +96,7 @@ export default function AuthCallbackPage() {
           .maybeSingle();
 
         console.log('[OAUTH][TIME] PROFILE_END', Date.now());
+        console.log('[OAUTH] PROFILE', existingProfile);
         console.log('[OAUTH] PROFILE_QUERY_END', { found: !!existingProfile, organizationId: existingProfile?.organization_id });
 
         console.log('[IDENTITY] PROFILE ID:', existingProfile?.id);
@@ -373,11 +375,13 @@ export default function AuthCallbackPage() {
           plan: (finalProfile.plan as any) || 'Pro',
         };
 
+        console.log('[OAUTH] SYNC USER', activeUser);
         syncOAuthUser(activeUser);
         console.log('[OAUTH][TIME] SYNC_END', Date.now());
 
         clearTimeout(globalTimeoutId);
         console.log('[OAUTH][TIME] REDIRECT', Date.now());
+        console.log('[OAUTH] REDIRECT');
         console.log('[OAUTH] REDIRECT_DASHBOARD');
 
         router.replace('/dashboard');
