@@ -47,7 +47,7 @@ interface AuthContextType {
   role: UserRole;
   isAuthenticated: boolean;
   isLoadingSession: boolean;
-  loginAsClient: (email?: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  loginAsClient: (email?: string, password?: string, isOAuth?: boolean) => Promise<{ success: boolean; error?: string }>;
   loginAsAdmin: () => void;
   loginAsCollaborator: (
     name: string,
@@ -259,24 +259,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const loginAsClient = async (email?: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+  const loginAsClient = async (email?: string, password?: string, isOAuth: boolean = false): Promise<{ success: boolean; error?: string }> => {
     const normalizedEmail = (email || '').toLowerCase().trim();
 
     if (!normalizedEmail) {
       return { success: false, error: 'Veuillez saisir votre adresse email.' };
     }
 
-    if (!password || !password.trim()) {
+    if (!isOAuth && (!password || !password.trim())) {
       return { success: false, error: 'Veuillez saisir votre mot de passe.' };
     }
 
     // 1. Check Rate Limiting (Brute-Force Protection)
-    const rateLimit = checkRateLimit(normalizedEmail);
-    if (!rateLimit.allowed) {
-      return {
-        success: false,
-        error: `Accès temporairement bloqué suite à de trop nombreuses tentatives échouées. Veuillez réessayer dans ${rateLimit.remainingSeconds} secondes.`,
-      };
+    if (!isOAuth) {
+      const rateLimit = checkRateLimit(normalizedEmail);
+      if (!rateLimit.allowed) {
+        return {
+          success: false,
+          error: `Accès temporairement bloqué suite à de trop nombreuses tentatives échouées. Veuillez réessayer dans ${rateLimit.remainingSeconds} secondes.`,
+        };
+      }
     }
 
     if (checkAccountDeleted(normalizedEmail)) {
@@ -288,79 +290,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
 
-    // 2. DATABASE EXISTENCE CHECK: Reject non-existent accounts
-    let isRegistered = false;
-    try {
-      const savedStr = localStorage.getItem('monneyfact_companies_list');
-      if (savedStr) {
-        const companies: any[] = JSON.parse(savedStr);
-        isRegistered = companies.some(
-          (c) =>
-            (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
-            (c.email && c.email.toLowerCase() === normalizedEmail)
-        );
+    if (!isOAuth) {
+      // 2. DATABASE EXISTENCE CHECK: Reject non-existent accounts for password logins
+      let isRegistered = false;
+      try {
+        const savedStr = localStorage.getItem('monneyfact_companies_list');
+        if (savedStr) {
+          const companies: any[] = JSON.parse(savedStr);
+          isRegistered = companies.some(
+            (c) =>
+              (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
+              (c.email && c.email.toLowerCase() === normalizedEmail)
+          );
+        }
+
+        if (!isRegistered) {
+          const userOrg = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
+          if (userOrg) isRegistered = true;
+        }
+
+        if (!isRegistered && getStoredAccount(normalizedEmail)) {
+          isRegistered = true;
+        }
+      } catch (e) {
+        console.error(e);
       }
 
-      if (!isRegistered) {
-        const userOrg = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
-        if (userOrg) isRegistered = true;
-      }
-
-      if (!isRegistered && getStoredAccount(normalizedEmail)) {
-        isRegistered = true;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    if (!isSuperAdmin && !isRegistered) {
-      recordFailedAttempt(normalizedEmail);
-      return {
-        success: false,
-        error: "Accès refusé : Aucun compte n'est enregistré avec cet e-mail dans notre base de données. Veuillez créer votre compte entreprise via le formulaire d'inscription.",
-      };
-    }
-
-    // 3. PASSWORD VERIFICATION
-    let storedAccount = getStoredAccount(normalizedEmail);
-
-    // Initial setup fallback for accounts registered before password hashing update or admin demo
-    if (!storedAccount && (isSuperAdmin || isRegistered)) {
-      const defaultPass = isSuperAdmin ? 'Admin1234' : password;
-      const initialHash = await hashPassword(defaultPass);
-      storedAccount = {
-        email: normalizedEmail,
-        companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : normalizedEmail.split('@')[0],
-        plan: resolveUserPlan(normalizedEmail),
-        hash: initialHash.hash,
-        salt: initialHash.salt,
-        createdAt: new Date().toISOString(),
-      };
-      saveStoredAccount(storedAccount);
-    }
-
-    if (storedAccount) {
-      const isValidPassword = await verifyPassword(password, storedAccount.hash, storedAccount.salt);
-      if (!isValidPassword) {
-        const failedResult = recordFailedAttempt(normalizedEmail);
-        const attemptsLeftText = failedResult.attemptsLeft !== undefined && failedResult.attemptsLeft > 0
-          ? ` (${failedResult.attemptsLeft} essai(s) restant(s))`
-          : '';
+      if (!isSuperAdmin && !isRegistered) {
+        recordFailedAttempt(normalizedEmail);
         return {
           success: false,
-          error: `Identifiants invalides : Le mot de passe saisi est incorrect${attemptsLeftText}.`,
+          error: "Accès refusé : Aucun compte n'est enregistré avec cet e-mail dans notre base de données. Veuillez créer votre compte entreprise via le formulaire d'inscription.",
         };
       }
-    }
 
-    // Attempt Supabase auth login in background if available
-    try {
-      await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: password,
-      });
-    } catch (sbErr) {
-      console.warn('Supabase login notice:', sbErr);
+      // 3. PASSWORD VERIFICATION
+      let storedAccount = getStoredAccount(normalizedEmail);
+
+      // Initial setup fallback for accounts registered before password hashing update or admin demo
+      if (!storedAccount && (isSuperAdmin || isRegistered)) {
+        const defaultPass = isSuperAdmin ? 'Admin1234' : (password || '');
+        const initialHash = await hashPassword(defaultPass);
+        storedAccount = {
+          email: normalizedEmail,
+          companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : normalizedEmail.split('@')[0],
+          plan: resolveUserPlan(normalizedEmail),
+          hash: initialHash.hash,
+          salt: initialHash.salt,
+          createdAt: new Date().toISOString(),
+        };
+        saveStoredAccount(storedAccount);
+      }
+
+      if (storedAccount && password) {
+        const isValidPassword = await verifyPassword(password, storedAccount.hash, storedAccount.salt);
+        if (!isValidPassword) {
+          const failedResult = recordFailedAttempt(normalizedEmail);
+          const attemptsLeftText = failedResult.attemptsLeft !== undefined && failedResult.attemptsLeft > 0
+            ? ` (${failedResult.attemptsLeft} essai(s) restant(s))`
+            : '';
+          return {
+            success: false,
+            error: `Identifiants invalides : Le mot de passe saisi est incorrect${attemptsLeftText}.`,
+          };
+        }
+      }
+
+      // Attempt Supabase auth login in background if available
+      try {
+        await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: password || '',
+        });
+      } catch (sbErr) {
+        console.warn('Supabase login notice:', sbErr);
+      }
     }
 
     // Successful login -> Clear rate limits
