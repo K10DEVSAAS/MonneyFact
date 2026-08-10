@@ -150,13 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
 
-  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('monneyfact_active_user');
-      return !savedUser;
-    }
-    return false;
-  });
+  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -175,7 +169,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         parsed.plan = resolveUserPlan(parsed.email);
         setUser(parsed);
-        setIsLoadingSession(false);
       }
     } catch (e) {
       console.error(e);
@@ -200,12 +193,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
           const actualPlan = resolveUserPlan(email);
 
+          let companyName = isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`;
+          const savedStr = localStorage.getItem('monneyfact_active_user');
+          if (savedStr) {
+            try {
+              const parsed = JSON.parse(savedStr);
+              if (parsed.email?.toLowerCase() === email.toLowerCase() && parsed.companyName) {
+                companyName = parsed.companyName;
+              }
+            } catch (e) {}
+          }
+
           const activeUser: UserSession = {
             id: session.user.id,
             name: isSuperAdmin ? 'Fondateur MonneyFact' : name,
             email,
             role,
-            companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`,
+            companyName,
             plan: actualPlan,
           };
 
@@ -600,12 +604,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const syncOAuthUser = (userSession: UserSession) => {
+    console.log('[AUTH] syncOAuthUser START');
+    console.log('[AUTH] syncOAuthUser USER', userSession);
     setUser(userSession);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(userSession));
+    console.log('[AUTH] syncOAuthUser isAuthenticated=true');
+    console.log('[AUTH] syncOAuthUser isLoadingSession=false');
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('monneyfact_auth_change'));
     }
+    console.log('[AUTH] syncOAuthUser END');
   };
 
   const logout = async () => {

@@ -16,13 +16,25 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const { isAuthenticated, isLoadingSession } = useAuth();
+  const { isAuthenticated, isLoadingSession, user } = useAuth();
   const { organization } = useAppStore();
+
+  // LOGS DIAGNOSTIC EXPLICITES DEMANDÉS (ÉTAPE 2)
+  console.log('[DASHBOARD] LAYOUT');
+  console.log('[DASHBOARD] AUTH STATE', { isAuthenticated, isLoadingSession, user });
+  console.log('[AUTH-GUARD] START');
+  console.log('[AUTH-GUARD] isLoadingSession=', isLoadingSession);
+  console.log('[AUTH-GUARD] isAuthenticated=', isAuthenticated);
+  console.log('[AUTH-GUARD] user=', user);
+  console.log('[AUTH-GUARD] ACTIVE_USER=', typeof window !== 'undefined' ? localStorage.getItem('monneyfact_active_user') : null);
 
   // 1. STRICT SECURITY PROTECTION: Block unauthenticated access to /dashboard
   useEffect(() => {
     if (!isLoadingSession && !isAuthenticated) {
+      console.log('[AUTH-GUARD] DECISION = REDIRECT /login (Non authentifié)');
       router.push('/login');
+    } else if (!isLoadingSession && isAuthenticated) {
+      console.log('[AUTH-GUARD] DECISION = AUTORISE ACCES DASHBOARD');
     }
   }, [isAuthenticated, isLoadingSession, router]);
 

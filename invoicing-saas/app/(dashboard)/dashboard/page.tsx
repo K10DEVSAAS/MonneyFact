@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function DashboardPage() {
+  console.log('[DASHBOARD] PAGE MOUNTED');
   const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId, subsidiaries, mainCompanyDashboard } = useAppStore();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
