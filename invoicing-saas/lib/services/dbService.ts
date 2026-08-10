@@ -88,23 +88,66 @@ export const dbService = {
 
   async upsertOrganization(org: Partial<Organization> & { email: string; name: string }): Promise<Organization | null> {
     try {
+      const cleanEmail = org.email.toLowerCase().trim();
       const { data, error } = await supabase
         .from('organizations')
         .upsert(
           {
             name: org.name,
-            email: org.email,
-            phone: org.phone,
-            address: org.address,
+            email: cleanEmail,
+            phone: org.phone || "+225 07 00 00 00 00",
+            address: org.address || "Abidjan, Côte d'Ivoire",
             tax_id: org.taxId,
             logo_url: org.logoUrl,
+            currency: 'FCFA',
+            default_tax_rate: 18,
+            plan: 'Pro',
+            status: 'active',
+            activated_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           },
           { onConflict: 'email' }
         )
         .select('*')
         .single();
 
-      if (error || !data) return null;
+      if (error || !data) {
+        console.error('[dbService upsertOrganization error]', error?.message);
+        return null;
+      }
+
+      // Check if active session user needs their profile.organization_id updated
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user && session.user.email?.toLowerCase() === cleanEmail) {
+          const userId = session.user.id;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, organization_id')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (profile && !profile.organization_id) {
+            await supabase
+              .from('profiles')
+              .update({ organization_id: data.id })
+              .eq('id', userId);
+          } else if (!profile) {
+            await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                email: cleanEmail,
+                full_name: org.name,
+                role: 'client',
+                organization_id: data.id,
+                plan: 'Pro',
+              });
+          }
+        }
+      } catch (bindErr) {
+        console.warn('[dbService profile binding warning]', bindErr);
+      }
 
       return {
         id: data.id,

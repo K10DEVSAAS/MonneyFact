@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Receipt, Loader2, CheckCircle2 } from 'lucide-react';
+import { Receipt, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
@@ -16,88 +16,213 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let isSubscribed = true;
 
+    const processUserBinding = async (session: any) => {
+      if (!session || !session.user) return false;
+
+      const user = session.user;
+      const email = (user.email || '').toLowerCase().trim();
+
+      if (!email) {
+        console.error('[OAuth Callback Error]: Email manquant dans la session utilisateur.');
+        router.push('/login');
+        return false;
+      }
+
+      setStatusMessage('Création et sécurisation de votre espace entreprise...');
+
+      // RULE 14: Super Admin Exception
+      if (email === 'admin@monneyfact.ci') {
+        loginAsAdmin();
+        return true;
+      }
+
+      const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Entreprise';
+
+      // RULE 8 & 9: Primary profile lookup by user.id
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('[OAuth Callback Error] Erreur récupération profil:', profileError.message);
+        router.push('/login');
+        return false;
+      }
+
+      // RULE 3 & 10: Primary organization lookup by email
+      const { data: existingOrg, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (orgError) {
+        console.error('[OAuth Callback Error] Erreur récupération organisation:', orgError.message);
+        router.push('/login');
+        return false;
+      }
+
+      let resolvedOrgId: string | null = null;
+      let resolvedOrgName: string | null = null;
+
+      // CAS 1 : Utilisateur authentifié + profil inexistant + organisation inexistante
+      if (!existingProfile && !existingOrg) {
+        const companyName = fullName.includes(' ')
+          ? `${fullName.split(' ')[0]} Enterprise`
+          : `${fullName} SARL`;
+
+        // RULE 4: Création d'organisation avec tous les champs requis
+        const { data: newOrg, error: createOrgErr } = await supabase
+          .from('organizations')
+          .insert({
+            name: companyName,
+            email,
+            address: "Abidjan, Côte d'Ivoire",
+            phone: "+225 07 00 00 00 00",
+            currency: "FCFA",
+            default_tax_rate: 18,
+            plan: "Pro",
+            status: "active",
+            activated_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+          .select('*')
+          .single();
+
+        if (createOrgErr || !newOrg) {
+          console.error('[OAuth Callback Error] Échec création organisation (CAS 1):', createOrgErr?.message);
+          router.push('/login');
+          return false;
+        }
+
+        resolvedOrgId = newOrg.id;
+        resolvedOrgName = newOrg.name;
+
+        // RULE 5: Création du profil avec profiles.id = user.id
+        const { error: createProfErr } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email,
+            full_name: fullName,
+            role: 'client',
+            organization_id: newOrg.id,
+            plan: 'Pro',
+          });
+
+        if (createProfErr) {
+          console.error('[OAuth Callback Error] Échec création profil (CAS 1):', createProfErr.message);
+          router.push('/login');
+          return false;
+        }
+      }
+      // CAS 2 : Utilisateur authentifié + profil inexistant + organisation existante
+      else if (!existingProfile && existingOrg) {
+        resolvedOrgId = existingOrg.id;
+        resolvedOrgName = existingOrg.name;
+
+        const { error: createProfErr } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email,
+            full_name: fullName,
+            role: 'client',
+            organization_id: existingOrg.id,
+            plan: 'Pro',
+          });
+
+        if (createProfErr) {
+          console.error('[OAuth Callback Error] Échec création profil (CAS 2):', createProfErr.message);
+          router.push('/login');
+          return false;
+        }
+      }
+      // CAS 3 : Utilisateur authentifié + profil existant + organization_id = NULL
+      else if (existingProfile && !existingProfile.organization_id) {
+        if (existingOrg) {
+          resolvedOrgId = existingOrg.id;
+          resolvedOrgName = existingOrg.name;
+        } else {
+          const companyName = fullName.includes(' ')
+            ? `${fullName.split(' ')[0]} Enterprise`
+            : `${fullName} SARL`;
+
+          const { data: newOrg, error: createOrgErr } = await supabase
+            .from('organizations')
+            .insert({
+              name: companyName,
+              email,
+              address: "Abidjan, Côte d'Ivoire",
+              phone: "+225 07 00 00 00 00",
+              currency: "FCFA",
+              default_tax_rate: 18,
+              plan: "Pro",
+              status: "active",
+              activated_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            })
+            .select('*')
+            .single();
+
+          if (createOrgErr || !newOrg) {
+            console.error('[OAuth Callback Error] Échec création organisation (CAS 3):', createOrgErr?.message);
+            router.push('/login');
+            return false;
+          }
+
+          resolvedOrgId = newOrg.id;
+          resolvedOrgName = newOrg.name;
+        }
+
+        // RULE 6: Mise à jour du profil existant avec organization_id
+        const { error: updateProfErr } = await supabase
+          .from('profiles')
+          .update({ organization_id: resolvedOrgId })
+          .eq('id', user.id);
+
+        if (updateProfErr) {
+          console.error('[OAuth Callback Error] Échec rattachement profil (CAS 3):', updateProfErr.message);
+          router.push('/login');
+          return false;
+        }
+      }
+      // CAS 4 : Utilisateur authentifié + profil existant + organization_id déjà renseigné
+      else if (existingProfile && existingProfile.organization_id) {
+        resolvedOrgId = existingProfile.organization_id;
+        resolvedOrgName = existingOrg?.name || `${fullName} Enterprise`;
+      }
+
+      if (resolvedOrgName) {
+        initializeZeroAccount(resolvedOrgName, email);
+      }
+
+      loginAsClient(email);
+      return true;
+    };
+
     const handleOAuthCallback = async () => {
       try {
-        // 1. Get current session from Supabase SDK (handles #access_token and ?code)
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Erreur Callback OAuth:', error.message);
+          console.error('[OAuth Callback Error]:', error.message);
           router.push('/login');
           return;
         }
 
         if (session && session.user) {
-          const user = session.user;
-          const email = user.email || '';
-          const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Entreprise Google';
-
-          setStatusMessage('Création et sécurisation de votre espace entreprise...');
-
-          // Check if Super Admin
-          if (email.toLowerCase() === 'admin@monneyfact.ci') {
-            loginAsAdmin();
-            return;
-          }
-
-          // Check if profile exists in database
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-          const companyName = fullName.includes(' ')
-            ? `${fullName.split(' ')[0]} Enterprise`
-            : `${fullName} SARL`;
-
-          if (!existingProfile) {
-            // Create organization at 0 FCFA in store & database
-            initializeZeroAccount(companyName, email);
-
-            // Create Supabase DB entries
-            const { data: newOrg } = await supabase
-              .from('organizations')
-              .insert({
-                name: companyName,
-                email,
-                address: 'Abidjan, Côte d\'Ivoire',
-                phone: '+225 07 00 00 00 00',
-                currency: 'FCFA',
-                default_tax_rate: 18,
-              })
-              .select('*')
-              .single();
-
-            if (newOrg) {
-              await supabase.from('profiles').insert({
-                id: user.id,
-                email,
-                full_name: fullName,
-                role: 'client',
-                organization_id: newOrg.id,
-                plan: 'Pro',
-              });
-            }
-          }
-
-          // Complete login and navigate to dashboard
-          loginAsClient(email);
+          await processUserBinding(session);
           return;
         }
 
-        // If no session found yet, listen to AuthStateChange
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
           if (!isSubscribed) return;
 
           if (currentSession && currentSession.user) {
-            const user = currentSession.user;
-            const email = user.email || '';
-            if (email.toLowerCase() === 'admin@monneyfact.ci') {
-              loginAsAdmin();
-            } else {
-              loginAsClient(email);
-            }
+            await processUserBinding(currentSession);
           } else if (event === 'SIGNED_OUT') {
             router.push('/login');
           }
@@ -107,7 +232,7 @@ export default function AuthCallbackPage() {
           subscription.unsubscribe();
         };
       } catch (err) {
-        console.error('Erreur Callback OAuth:', err);
+        console.error('[OAuth Callback Error]:', err);
         router.push('/login');
       }
     };
