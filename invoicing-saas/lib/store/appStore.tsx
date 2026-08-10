@@ -664,6 +664,22 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
+    let targetOrgId = organization.id;
+    if (!targetOrgId || targetOrgId === 'guest-org' || !/^[0-9a-f-]{36}$/i.test(targetOrgId)) {
+      const activeUserStr = typeof window !== 'undefined' ? localStorage.getItem('monneyfact_active_user') : null;
+      if (activeUserStr) {
+        try {
+          const u = JSON.parse(activeUserStr);
+          if (u.organizationId && /^[0-9a-f-]{36}$/i.test(u.organizationId)) {
+            targetOrgId = u.organizationId;
+          }
+        } catch (e) {}
+      }
+    }
+    if (!targetOrgId || !/^[0-9a-f-]{36}$/i.test(targetOrgId)) {
+      targetOrgId = getDeterministicUserOrgId(organization.email || newInv.clientEmail || 'default-org');
+    }
+
     const payload = {
       ...newInv,
       id: generatedId,
@@ -671,7 +687,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       subsidiaryName: targetSubName,
       paymentToken: generatedId,
       organizationName: organization.name,
-      organizationId: organization.id,
+      organizationId: targetOrgId,
       createdAt: new Date().toISOString(),
     };
 

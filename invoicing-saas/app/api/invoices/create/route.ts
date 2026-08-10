@@ -28,16 +28,21 @@ export async function POST(request: Request) {
     } = body;
 
     const token = paymentToken || body.id || `inv-${Date.now()}`;
-    const isValidUuid = organizationId && /^[0-9a-f-]{36}$/i.test(organizationId);
-
-    if (!isValidUuid) {
-      return NextResponse.json(
-        { success: false, error: 'Identifiant d\'organisation (organizationId) valide requis.' },
-        { status: 400 }
-      );
+    
+    function generateFallbackOrgUuid(str: string): string {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      const hex = Math.abs(hash).toString(16).padStart(12, '0');
+      return `00000000-0000-4000-8000-${hex}`;
     }
 
-    const validOrgId = organizationId;
+    let validOrgId = organizationId;
+    if (!validOrgId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(validOrgId)) {
+      validOrgId = generateFallbackOrgUuid(body.organizationName || clientEmail || 'default-org');
+    }
 
     // 1. Ensure Organization exists in DB
     const { error: orgErr } = await supabase.from('organizations').upsert({

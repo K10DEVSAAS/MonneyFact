@@ -610,6 +610,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userSession);
     setIsLoadingSession(false);
     localStorage.setItem('monneyfact_active_user', JSON.stringify(userSession));
+
+    if (userSession.organizationId) {
+      try {
+        const { useAppStore } = require('../store/appStore');
+        const store = useAppStore.getState();
+        if (store && store.setOrganization) {
+          store.setOrganization({
+            ...store.organization,
+            id: userSession.organizationId,
+            name: userSession.companyName || store.organization.name,
+            email: userSession.email,
+            plan: userSession.plan || 'Pro',
+          });
+        }
+      } catch (e) {
+        console.warn('Could not update store organization directly:', e);
+      }
+    }
+
     console.log('[AUTH] syncOAuthUser isAuthenticated=true');
     console.log('[AUTH] syncOAuthUser isLoadingSession=false');
     if (typeof window !== 'undefined') {
