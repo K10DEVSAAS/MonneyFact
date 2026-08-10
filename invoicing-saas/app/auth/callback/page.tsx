@@ -30,7 +30,7 @@ export default function AuthCallbackPage() {
 
       setStatusMessage('Création et sécurisation de votre espace entreprise...');
 
-      // RULE 14: Super Admin Exception
+      // SUPER ADMIN EXCEPTION
       if (email === 'admin@monneyfact.ci') {
         loginAsAdmin();
         return true;
@@ -38,7 +38,7 @@ export default function AuthCallbackPage() {
 
       const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Entreprise';
 
-      // RULE 8 & 9: Primary profile lookup by user.id
+      // ÉTAPE 2 : Recherche principale du profil par user.id (identifiant Auth)
       const { data: existingProfile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -51,7 +51,7 @@ export default function AuthCallbackPage() {
         return false;
       }
 
-      // RULE 3 & 10: Primary organization lookup by email
+      // ÉTAPE 3 : Recherche principale de l'organisation par email normalisé
       const { data: existingOrg, error: orgError } = await supabase
         .from('organizations')
         .select('*')
@@ -73,7 +73,6 @@ export default function AuthCallbackPage() {
           ? `${fullName.split(' ')[0]} Enterprise`
           : `${fullName} SARL`;
 
-        // RULE 4: Création d'organisation avec tous les champs requis
         const { data: newOrg, error: createOrgErr } = await supabase
           .from('organizations')
           .insert({
@@ -100,7 +99,6 @@ export default function AuthCallbackPage() {
         resolvedOrgId = newOrg.id;
         resolvedOrgName = newOrg.name;
 
-        // RULE 5: Création du profil avec profiles.id = user.id
         const { error: createProfErr } = await supabase
           .from('profiles')
           .insert({
@@ -131,7 +129,7 @@ export default function AuthCallbackPage() {
             full_name: fullName,
             role: 'client',
             organization_id: existingOrg.id,
-            plan: 'Pro',
+            plan: existingOrg.plan || 'Pro',
           });
 
         if (createProfErr) {
@@ -177,7 +175,6 @@ export default function AuthCallbackPage() {
           resolvedOrgName = newOrg.name;
         }
 
-        // RULE 6: Mise à jour du profil existant avec organization_id
         const { error: updateProfErr } = await supabase
           .from('profiles')
           .update({ organization_id: resolvedOrgId })
@@ -193,6 +190,27 @@ export default function AuthCallbackPage() {
       else if (existingProfile && existingProfile.organization_id) {
         resolvedOrgId = existingProfile.organization_id;
         resolvedOrgName = existingOrg?.name || `${fullName} Enterprise`;
+      }
+
+      // VÉRIFICATION DE COHÉRENCE FINALE AVANT REDIRECTION VERS DASHBOARD
+      const { data: finalProfile, error: finalProfileError } = await supabase
+        .from('profiles')
+        .select('id, email, role, organization_id, plan')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (finalProfileError || !finalProfile) {
+        console.error('[OAuth Callback Error] Échec de la vérification du profil final:', finalProfileError?.message);
+        setStatusMessage('Erreur de validation de la session utilisateur.');
+        router.push('/login');
+        return false;
+      }
+
+      if (finalProfile.role !== 'super_admin' && !finalProfile.organization_id) {
+        console.error('[OAuth Callback Error] Le profil utilisateur est sans organization_id.');
+        setStatusMessage("Votre compte n'est associé à aucune organisation.");
+        router.push('/login');
+        return false;
       }
 
       if (resolvedOrgName) {
