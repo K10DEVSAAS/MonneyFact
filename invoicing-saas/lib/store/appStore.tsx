@@ -147,24 +147,25 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         const uniqueUserOrgId = getDeterministicUserOrgId(userEmail);
+        const targetOrgId = u.organizationId || ((isCollab || !u.id || u.id === DEFAULT_ORG_UUID || u.id.startsWith('collab-')) ? uniqueUserOrgId : u.id);
 
         currentOrg = {
           ...mockOrganization,
-          id: (isCollab || !u.id || u.id === DEFAULT_ORG_UUID || u.id.startsWith('collab-')) ? uniqueUserOrgId : u.id,
+          id: targetOrgId,
           name: u.hostCompanyName || u.companyName || u.name || mockOrganization.name,
           email: userEmail || u.email || mockOrganization.email,
           plan: u.plan || 'Pro',
         };
 
-        // Try restoring user-specific organization data
-        if (userEmail) {
+        // Try restoring user-specific organization data if not explicitly set by OAuth
+        if (userEmail && !u.organizationId) {
           const userOrgKey = `monneyfact_org_${userEmail}`;
           const savedOrg = localStorage.getItem(userOrgKey);
           if (savedOrg) {
             const parsedOrg = JSON.parse(savedOrg);
             currentOrg = {
               ...parsedOrg,
-              id: (parsedOrg.id && parsedOrg.id !== DEFAULT_ORG_UUID) ? parsedOrg.id : uniqueUserOrgId,
+              id: (parsedOrg.id && parsedOrg.id !== DEFAULT_ORG_UUID) ? parsedOrg.id : targetOrgId,
             };
           } else {
             const savedCompList = localStorage.getItem('monneyfact_companies_list');
@@ -177,7 +178,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               if (found) {
                 currentOrg = {
                   ...mockOrganization,
-                  id: (found.id && found.id !== DEFAULT_ORG_UUID) ? found.id : uniqueUserOrgId,
+                  id: (found.id && found.id !== DEFAULT_ORG_UUID) ? found.id : targetOrgId,
                   name: found.name || found.ownerName || mockOrganization.name,
                   email: userEmail,
                   plan: found.plan || 'Pro',

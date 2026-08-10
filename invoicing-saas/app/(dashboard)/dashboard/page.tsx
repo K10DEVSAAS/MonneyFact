@@ -11,10 +11,16 @@ import { useAuth } from '@/lib/auth/authContext';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function DashboardPage() {
-  console.log('[DASHBOARD] PAGE MOUNTED');
   const { organization, stats, invoices, activeSubsidiaryId, setActiveSubsidiaryId, subsidiaries, mainCompanyDashboard } = useAppStore();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
+
+  console.log('[DASHBOARD] PAGE MOUNTED');
+  console.log('[DASHBOARD] AUTH USER ID:', user?.id);
+  console.log('[DASHBOARD] AUTH EMAIL:', user?.email);
+  console.log('[DASHBOARD] PROFILE ID:', user?.id);
+  console.log('[DASHBOARD] ORGANIZATION ID:', user?.organizationId || organization?.id);
+  console.log('[DASHBOARD] ORGANIZATION NAME:', user?.companyName || organization?.name);
 
   const isPro = organization.plan === 'Pro';
   const isZeroState = invoices.length === 0;

@@ -30,10 +30,11 @@ export default function AuthCallbackPage() {
       if (processingRef.current) return;
       processingRef.current = true;
 
+      console.log('[OAUTH][TIME] SESSION_START', Date.now());
       console.log('[OAUTH] START');
 
       try {
-        // 1. RECUPERATION DE SESSION SUPABASE AUTH
+        // 1. RECUPERATION DE SESSION SUPABASE AUTH (SOURCE UNIQUE DE VERITE)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
@@ -54,11 +55,14 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        console.log('[OAUTH] SESSION_OK', { userId: session.user.id, email: session.user.email });
-
         const user = session.user;
         const userId = user.id;
         const email = (user.email || '').trim().toLowerCase();
+
+        // ETAPE 1 — AUDIT IDENTITY SUPABASE AUTH
+        console.log('[IDENTITY] AUTH USER ID:', userId);
+        console.log('[IDENTITY] AUTH EMAIL:', email);
+        console.log('[OAUTH] SESSION_OK', { userId, email });
 
         if (!email) {
           clearTimeout(globalTimeoutId);
@@ -69,7 +73,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // CAS SPECIFIQUE SUPER ADMIN
+        // SUPER ADMIN EXCEPTION
         if (email === 'admin@monneyfact.ci') {
           clearTimeout(globalTimeoutId);
           console.log('[OAUTH] SUPER ADMIN DETECTED');
@@ -80,15 +84,23 @@ export default function AuthCallbackPage() {
 
         const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Entreprise';
 
-        // 2. RECHERCHE DU PROFIL PAR session.user.id (IDENTIFIANT SUPABASE AUTH EXCLUSIF)
+        // ETAPE 2 — RECHERCHE EXCLUSIVE DU PROFIL PAR session.user.id
+        console.log('[OAUTH][TIME] PROFILE_START', Date.now());
         console.log('[OAUTH] PROFILE_QUERY_START');
+
         const { data: existingProfile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .maybeSingle();
 
+        console.log('[OAUTH][TIME] PROFILE_END', Date.now());
         console.log('[OAUTH] PROFILE_QUERY_END', { found: !!existingProfile, organizationId: existingProfile?.organization_id });
+
+        console.log('[IDENTITY] PROFILE ID:', existingProfile?.id);
+        console.log('[IDENTITY] PROFILE EMAIL:', existingProfile?.email);
+        console.log('[IDENTITY] PROFILE ORGANIZATION ID:', existingProfile?.organization_id);
+        console.log('[IDENTITY] PROFILE FULL NAME:', existingProfile?.full_name);
 
         if (profileError) {
           clearTimeout(globalTimeoutId);
@@ -99,56 +111,89 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // 3. RECHERCHE DE L'ORGANISATION PAR EMAIL NORMALISÉ
+        // ETAPE 5 — VERIFICATION DE COHERENCE D'IDENTITE
+        if (existingProfile) {
+          if (existingProfile.id !== userId) {
+            clearTimeout(globalTimeoutId);
+            console.error('[IDENTITY] CRITICAL MISMATCH AUTH USER ID != PROFILE ID', { userId, profileId: existingProfile.id });
+            setStatusMessage("Erreur de correspondance du compte Google. Votre session n'a pas été ouverte afin de protéger vos données.");
+            processingRef.current = false;
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
+          }
+          if (existingProfile.email?.toLowerCase().trim() !== email) {
+            clearTimeout(globalTimeoutId);
+            console.error('[IDENTITY] CRITICAL MISMATCH EMAIL', { authEmail: email, profileEmail: existingProfile.email });
+            setStatusMessage("Erreur de correspondance du compte Google. Votre session n'a pas été ouverte afin de protéger vos données.");
+            processingRef.current = false;
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
+          }
+        }
+
+        // ETAPE 6 — DETERMINATION DE L'ORGANISATION PAR PROFILE.ORGANIZATION_ID OU EMAIL
+        console.log('[OAUTH][TIME] ORGANIZATION_START', Date.now());
         console.log('[OAUTH] ORGANIZATION_QUERY_START');
-        const { data: existingOrg, error: orgError } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('email', email)
-          .maybeSingle();
 
-        console.log('[OAUTH] ORGANIZATION_QUERY_END', { found: !!existingOrg, orgId: existingOrg?.id });
+        let targetOrg: any = null;
 
-        if (orgError) {
-          clearTimeout(globalTimeoutId);
-          console.error('[OAUTH] ERREUR ORGANIZATION:', orgError);
-          setStatusMessage(`Erreur organisation : ${orgError.message}`);
-          processingRef.current = false;
-          setTimeout(() => router.replace('/login'), 3000);
-          return;
+        if (existingProfile?.organization_id) {
+          const { data: orgById } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', existingProfile.organization_id)
+            .maybeSingle();
+
+          if (orgById) targetOrg = orgById;
         }
 
-        let resolvedOrgId: string | null = null;
-        let resolvedOrgName: string | null = existingOrg?.name || null;
+        if (!targetOrg) {
+          const { data: orgByEmail, error: orgErr } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
 
-        // CAS A : Profil existant avec organization_id déjà renseigné
-        if (existingProfile && existingProfile.organization_id) {
-          resolvedOrgId = existingProfile.organization_id;
-          resolvedOrgName = existingOrg?.name || `${fullName} Enterprise`;
+          if (orgErr) {
+            clearTimeout(globalTimeoutId);
+            console.error('[OAUTH] ERREUR ORGANIZATION:', orgErr);
+            setStatusMessage(`Erreur organisation : ${orgErr.message}`);
+            processingRef.current = false;
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
+          }
+
+          if (orgByEmail) targetOrg = orgByEmail;
         }
-        // CAS B : Profil existant mais organization_id IS NULL
-        else if (existingProfile && !existingProfile.organization_id) {
-          if (existingOrg) {
-            resolvedOrgId = existingOrg.id;
-            resolvedOrgName = existingOrg.name;
 
-            const { data: updatedProf, error: updateProfErr } = await supabase
+        console.log('[OAUTH][TIME] ORGANIZATION_END', Date.now());
+        console.log('[OAUTH] ORGANIZATION_QUERY_END', { found: !!targetOrg, orgId: targetOrg?.id });
+        console.log('[IDENTITY] ORGANIZATION ID:', targetOrg?.id);
+        console.log('[IDENTITY] ORGANIZATION NAME:', targetOrg?.name);
+
+        let resolvedOrgId: string | null = targetOrg?.id || null;
+        let resolvedOrgName: string | null = targetOrg?.name || null;
+
+        // CAS RATTACHEMENT & CREATION SI ABSENTE
+        if (existingProfile && !existingProfile.organization_id) {
+          if (targetOrg) {
+            resolvedOrgId = targetOrg.id;
+            resolvedOrgName = targetOrg.name;
+
+            const { error: updateProfErr } = await supabase
               .from('profiles')
-              .update({ organization_id: existingOrg.id })
-              .eq('id', userId)
-              .select('*')
-              .single();
+              .update({ organization_id: targetOrg.id })
+              .eq('id', userId);
 
-            if (updateProfErr || !updatedProf) {
+            if (updateProfErr) {
               clearTimeout(globalTimeoutId);
               console.error('[OAUTH] ERREUR RATTACHEMENT PROFIL:', updateProfErr);
-              setStatusMessage(`Erreur rattachement organisation : ${updateProfErr?.message}`);
+              setStatusMessage(`Erreur rattachement organisation : ${updateProfErr.message}`);
               processingRef.current = false;
               setTimeout(() => router.replace('/login'), 3000);
               return;
             }
           } else {
-            // Créer l'organisation si aucune n'existe avec cet email
             const companyName = fullName.includes(' ') ? `${fullName.split(' ')[0]} Enterprise` : `${fullName} SARL`;
             const { data: newOrg, error: createOrgErr } = await supabase
               .from('organizations')
@@ -176,6 +221,7 @@ export default function AuthCallbackPage() {
               return;
             }
 
+            targetOrg = newOrg;
             resolvedOrgId = newOrg.id;
             resolvedOrgName = newOrg.name;
 
@@ -194,35 +240,31 @@ export default function AuthCallbackPage() {
             }
           }
         }
-        // CAS C : Profil inexistant + Organisation existante
-        else if (!existingProfile && existingOrg) {
-          resolvedOrgId = existingOrg.id;
-          resolvedOrgName = existingOrg.name;
+        else if (!existingProfile && targetOrg) {
+          resolvedOrgId = targetOrg.id;
+          resolvedOrgName = targetOrg.name;
 
-          const { data: createdProf, error: createProfErr } = await supabase
+          const { error: createProfErr } = await supabase
             .from('profiles')
             .insert({
               id: userId,
               email,
               full_name: fullName,
               role: 'client',
-              organization_id: existingOrg.id,
-              plan: existingOrg.plan ?? 'Pro',
-            })
-            .select('*')
-            .single();
+              organization_id: targetOrg.id,
+              plan: targetOrg.plan ?? 'Pro',
+            });
 
-          if (createProfErr || !createdProf) {
+          if (createProfErr) {
             clearTimeout(globalTimeoutId);
             console.error('[OAUTH] ERREUR CRÉATION PROFIL:', createProfErr);
-            setStatusMessage(`Erreur création profil : ${createProfErr?.message}`);
+            setStatusMessage(`Erreur création profil : ${createProfErr.message}`);
             processingRef.current = false;
             setTimeout(() => router.replace('/login'), 3000);
             return;
           }
         }
-        // CAS D : Profil inexistant + Organisation inexistante
-        else if (!existingProfile && !existingOrg) {
+        else if (!existingProfile && !targetOrg) {
           const companyName = fullName.includes(' ') ? `${fullName.split(' ')[0]} Enterprise` : `${fullName} SARL`;
           const { data: newOrg, error: createOrgErr } = await supabase
             .from('organizations')
@@ -250,10 +292,11 @@ export default function AuthCallbackPage() {
             return;
           }
 
+          targetOrg = newOrg;
           resolvedOrgId = newOrg.id;
           resolvedOrgName = newOrg.name;
 
-          const { data: createdProf, error: createProfErr } = await supabase
+          const { error: createProfErr } = await supabase
             .from('profiles')
             .insert({
               id: userId,
@@ -262,14 +305,12 @@ export default function AuthCallbackPage() {
               role: 'client',
               organization_id: newOrg.id,
               plan: 'Pro',
-            })
-            .select('*')
-            .single();
+            });
 
-          if (createProfErr || !createdProf) {
+          if (createProfErr) {
             clearTimeout(globalTimeoutId);
             console.error('[OAUTH] ERREUR CRÉATION PROFIL:', createProfErr);
-            setStatusMessage(`Erreur création profil : ${createProfErr?.message}`);
+            setStatusMessage(`Erreur création profil : ${createProfErr.message}`);
             processingRef.current = false;
             setTimeout(() => router.replace('/login'), 3000);
             return;
@@ -294,6 +335,15 @@ export default function AuthCallbackPage() {
           return;
         }
 
+        // ETAPE 10 — VALIDATION DE SECURITE ANTI-COMPTE CROISE
+        if (finalProfile.id !== userId) {
+          throw new Error('SECURITY: profile does not belong to authenticated Google user');
+        }
+
+        if (finalProfile.email?.toLowerCase().trim() !== email) {
+          throw new Error('SECURITY: profile email does not match authenticated Google email');
+        }
+
         if (finalProfile.role !== 'super_admin' && !finalProfile.organization_id) {
           clearTimeout(globalTimeoutId);
           console.error('[OAUTH] PROFIL ORPHELIN DETECTE');
@@ -305,7 +355,10 @@ export default function AuthCallbackPage() {
 
         console.log('[OAUTH] FINAL_PROFILE_OK', { finalProfile });
 
-        // 5. SYNCHRONISATION SYNCHRONE DES ETATS EN MEMOIRE SANS MOT DE PASSE
+        // ETAPE 7 & 8 — NETTOYAGE STRICT DU CONTEXTE ET REMPLACEMENT EN MEMOIRE
+        console.log('[OAUTH][TIME] SYNC_START', Date.now());
+        localStorage.removeItem('monneyfact_active_user');
+
         if (resolvedOrgName) {
           initializeZeroAccount(resolvedOrgName, email);
         }
@@ -315,16 +368,18 @@ export default function AuthCallbackPage() {
           name: finalProfile.full_name || fullName,
           email,
           role: 'client',
+          organizationId: resolvedOrgId || undefined,
           companyName: resolvedOrgName || `${fullName} Enterprise`,
           plan: (finalProfile.plan as any) || 'Pro',
         };
 
         syncOAuthUser(activeUser);
+        console.log('[OAUTH][TIME] SYNC_END', Date.now());
 
         clearTimeout(globalTimeoutId);
+        console.log('[OAUTH][TIME] REDIRECT', Date.now());
         console.log('[OAUTH] REDIRECT_DASHBOARD');
 
-        // REDIRECTION ETANCHE DIRECTE VERS /DASHBOARD
         router.replace('/dashboard');
       } catch (err) {
         clearTimeout(globalTimeoutId);

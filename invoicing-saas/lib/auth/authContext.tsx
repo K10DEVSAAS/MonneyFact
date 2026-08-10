@@ -19,6 +19,7 @@ export interface UserSession {
   name: string;
   email: string;
   role: UserRole;
+  organizationId?: string;
   companyName?: string;
   plan?: PlanType;
   avatarUrl?: string;
