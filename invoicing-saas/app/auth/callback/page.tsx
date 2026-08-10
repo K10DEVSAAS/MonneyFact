@@ -61,6 +61,7 @@ export default function AuthCallbackPage() {
 
         console.log('[OAUTH] SESSION', { session });
         console.log('[OAUTH] USER', { userId, email });
+        console.log('[OAUTH] USER_FOUND', { userId, email });
         console.log('[IDENTITY] AUTH USER ID:', userId);
         console.log('[IDENTITY] AUTH EMAIL:', email);
         console.log('[OAUTH] SESSION_OK', { userId, email });
@@ -169,6 +170,7 @@ export default function AuthCallbackPage() {
         }
 
         console.log('[OAUTH][TIME] ORGANIZATION_END', Date.now());
+        console.log('[OAUTH] ORGANIZATION_FOUND', targetOrg);
         console.log('[OAUTH] ORGANIZATION_QUERY_END', { found: !!targetOrg, orgId: targetOrg?.id });
         console.log('[IDENTITY] ORGANIZATION ID:', targetOrg?.id);
         console.log('[IDENTITY] ORGANIZATION NAME:', targetOrg?.name);
@@ -360,6 +362,7 @@ export default function AuthCallbackPage() {
         // ETAPE 7 & 8 — NETTOYAGE STRICT DU CONTEXTE ET REMPLACEMENT EN MEMOIRE
         console.log('[OAUTH][TIME] SYNC_START', Date.now());
         localStorage.removeItem('monneyfact_active_user');
+        localStorage.removeItem('monneyfact_companies_list');
 
         if (resolvedOrgName) {
           initializeZeroAccount(resolvedOrgName, email);
@@ -377,6 +380,7 @@ export default function AuthCallbackPage() {
 
         console.log('[OAUTH] SYNC USER', activeUser);
         syncOAuthUser(activeUser);
+        console.log('[OAUTH] SYNC_COMPLETE', activeUser);
         console.log('[OAUTH][TIME] SYNC_END', Date.now());
 
         clearTimeout(globalTimeoutId);
