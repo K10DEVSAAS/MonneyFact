@@ -71,6 +71,24 @@ body {
   animation: pulseGlow 4s ease-in-out infinite;
 }
 
+@keyframes progressSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes bounceSubtle {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.03); }
+}
+
+.animate-progress-slide {
+  animation: progressSlide 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounceSubtle 2.5s ease-in-out infinite;
+}
+
 .glass-card {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);

@@ -6,7 +6,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { BrandSplashLoader } from '@/components/ui/BrandSplashLoader';
+import { ShieldAlert } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -39,15 +40,13 @@ export default function DashboardLayout({
 
 
 
-  // Show loading screen while validating session
+  // Show logo-inspired splash loader screen while validating session
   if (isLoadingSession) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 text-white">
-        <div className="flex items-center gap-3 bg-zinc-900 px-6 py-4 rounded-2xl border border-zinc-800 shadow-xl">
-          <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
-          <span className="text-xs font-bold text-zinc-300">Vérification de la session sécurisée...</span>
-        </div>
-      </div>
+      <BrandSplashLoader
+        message="Vérification de la session sécurisée..."
+        submessage="MoneyFact • Espace Entreprise"
+      />
     );
   }
 
