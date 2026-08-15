@@ -3,7 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/lib/auth/authContext';
 import { AppStoreProvider } from '@/lib/store/appStore';
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://monney-fact.vercel.app';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moneyfact.ci';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -50,13 +50,13 @@ export const metadata: Metadata = {
         url: `${siteUrl}/icon.svg`,
         width: 512,
         height: 512,
-        alt: 'MonneyFact SaaS Logo',
+        alt: 'MoneyFact SaaS Logo',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MonneyFact — Facturation SaaS Côte d\'Ivoire',
+    title: 'MoneyFact — Facturation SaaS Côte d\'Ivoire',
     description: 'Facturation conforme TVA 18%, NCC et encaissement Mobile Money instantané.',
     images: [`${siteUrl}/icon.svg`],
   },
@@ -64,7 +64,9 @@ export const metadata: Metadata = {
     canonical: siteUrl,
   },
   icons: {
-    icon: '/icon.svg',
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
     shortcut: '/icon.svg',
     apple: '/icon.svg',
   },
@@ -78,7 +80,7 @@ export default function RootLayout({
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'MonneyFact',
+    name: 'MoneyFact',
     operatingSystem: 'Web',
     applicationCategory: 'BusinessApplication',
     offers: {
@@ -92,6 +94,8 @@ export default function RootLayout({
   return (
     <html lang="fr" className="h-full antialiased">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

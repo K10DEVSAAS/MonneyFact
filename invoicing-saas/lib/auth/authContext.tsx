@@ -75,10 +75,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEMO_ADMIN: UserSession = {
   id: 'usr-admin-99',
-  name: 'Fondateur MonneyFact',
-  email: 'admin@monneyfact.ci',
+  name: 'Fondateur MoneyFact',
+  email: 'admin@moneyfact.ci',
   role: 'super_admin',
-  companyName: 'MonneyFact Inc. Côte d\'Ivoire',
+  companyName: 'MoneyFact Inc. Côte d\'Ivoire',
   plan: 'Pro',
 };
 
@@ -191,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
+          const isSuperAdmin = email.toLowerCase() === 'admin@moneyfact.ci' || email.toLowerCase() === 'admin@monneyfact.ci';
           const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
 
           // 100% PostgreSQL Lookup for profile & organization
@@ -217,13 +217,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           const companyName = isSuperAdmin 
-            ? 'MonneyFact Inc. Côte d\'Ivoire' 
+            ? 'MoneyFact Inc. Côte d\'Ivoire' 
             : (dbOrg?.name || dbProfile?.full_name || `${email.split('@')[0]} Enterprise`);
           const organizationId = dbOrg?.id || dbProfile?.organization_id;
 
           const activeUser: UserSession = {
             id: session.user.id,
-            name: isSuperAdmin ? 'Fondateur MonneyFact' : (dbProfile?.full_name || companyName),
+            name: isSuperAdmin ? 'Fondateur MoneyFact' : (dbProfile?.full_name || companyName),
             email,
             role,
             organizationId,
@@ -253,7 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
+        const isSuperAdmin = email.toLowerCase() === 'admin@moneyfact.ci' || email.toLowerCase() === 'admin@monneyfact.ci';
         const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
 
         let dbProfile = await dbService.getProfileById(session.user.id) || await dbService.getProfileByEmail(email);
@@ -262,13 +262,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : await dbService.getOrganization(email);
 
         const companyName = isSuperAdmin 
-          ? 'MonneyFact Inc. Côte d\'Ivoire' 
+          ? 'MoneyFact Inc. Côte d\'Ivoire' 
           : (dbOrg?.name || dbProfile?.full_name || `${email.split('@')[0]} Enterprise`);
         const organizationId = dbOrg?.id || dbProfile?.organization_id;
 
         const activeUser: UserSession = {
           id: session.user.id,
-          name: isSuperAdmin ? 'Fondateur MonneyFact' : (dbProfile?.full_name || companyName),
+          name: isSuperAdmin ? 'Fondateur MoneyFact' : (dbProfile?.full_name || companyName),
           email,
           role,
           organizationId,
@@ -427,13 +427,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const companyName = isSuperAdmin 
-      ? 'MonneyFact Inc. Côte d\'Ivoire' 
+      ? 'MoneyFact Inc. Côte d\'Ivoire' 
       : (dbOrg?.name || dbProfile?.full_name || `${normalizedEmail.split('@')[0]} Enterprise`);
     const organizationId = dbOrg?.id || dbProfile?.organization_id;
 
     const loggedInUser: UserSession = {
       id: dbProfile?.id || (organizationId ? `usr-${organizationId}` : (isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`)),
-      name: isSuperAdmin ? 'Fondateur MonneyFact' : (dbProfile?.full_name || companyName),
+      name: isSuperAdmin ? 'Fondateur MoneyFact' : (dbProfile?.full_name || companyName),
       email: normalizedEmail,
       role,
       organizationId,
