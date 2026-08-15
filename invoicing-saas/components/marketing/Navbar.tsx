@@ -21,10 +21,6 @@ export const MarketingNavbar: React.FC = () => {
           <a href="#fonctionnalites" className="hover:text-orange-600 transition-colors">
             Fonctionnalités
           </a>
-          <a href="#gratuit" className="hover:text-orange-600 transition-colors flex items-center gap-1.5 text-emerald-700">
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>Accès Gratuit V1</span>
-          </a>
           <a href="#temoignages" className="hover:text-orange-600 transition-colors">
             Témoignages
           </a>
@@ -79,13 +75,6 @@ export const MarketingNavbar: React.FC = () => {
             className="block px-3 py-2 rounded-lg hover:bg-slate-100"
           >
             Fonctionnalités
-          </a>
-          <a
-            href="#gratuit"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-slate-100 text-emerald-700"
-          >
-            Accès Gratuit V1
           </a>
           <a
             href="#temoignages"
