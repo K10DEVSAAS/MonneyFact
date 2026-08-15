@@ -28,43 +28,7 @@ import { Lock } from 'lucide-react';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { clients, invoices, addInvoice, organization, activeSubsidiaryId, subsidiaries } = useAppStore();
-  const { hasPermission } = usePermissions();
-
-  const canCreateInvoices = hasPermission('create_invoices');
-  const userEmail = organization.email ? organization.email.toLowerCase() : 'guest';
-
-  const subsidiariesList = (subsidiaries || []).filter(
-    (s) => !['sub-main', 'sub-2', 'sub-3'].includes(s.id)
-  );
-
-  const [selectedSubsidiaryId, setSelectedSubsidiaryId] = useState(
-    activeSubsidiaryId !== 'global' ? activeSubsidiaryId : ''
-  );
-
-  const isProPlan = organization.plan === 'Pro';
-
-  if (!canCreateInvoices) {
-    return (
-      <div className="p-12 bg-white rounded-3xl border border-slate-200 shadow-xl text-center space-y-4 max-w-lg mx-auto my-12 text-slate-900">
-        <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
-          <Lock className="w-8 h-8" />
-        </div>
-        <h2 className="text-xl font-extrabold text-slate-900">Accès Refusé : Création de Facture</h2>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Votre rôle collaborateur ne dispose pas de la permission &quot;Créer des Factures & Devis&quot;. Contactez l&apos;administrateur de l&apos;entreprise pour obtenir cette autorisation.
-        </p>
-        <div className="pt-2">
-          <Link
-            href="/invoices"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md"
-          >
-            <span>Retour à la liste des factures</span>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const { clients, invoices, addInvoice, organization } = useAppStore();
 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientName, setClientName] = useState('');
@@ -148,17 +112,9 @@ export default function NewInvoicePage() {
       const seqNumber = (invoices.length + 1).toString().padStart(4, '0');
       const generatedNumber = `FAC-${currentYear}-${seqNumber}`;
 
-      const subToUseId = selectedSubsidiaryId || (activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined);
-
-      const chosenSub = subToUseId
-        ? (subsidiaries || []).find((s) => s.id === subToUseId)
-        : undefined;
-
       await addInvoice({
         invoiceNumber: generatedNumber,
         organizationId: organization.id,
-        subsidiaryId: subToUseId,
-        subsidiaryName: chosenSub?.name || (activeSubsidiaryId !== 'global' ? (subsidiaries || []).find(s => s.id === activeSubsidiaryId)?.name : undefined),
         clientId: selectedClientId || `cli-temp-${Date.now()}`,
         clientName,
         clientEmail: clientEmail || 'client@entreprise.ci',
@@ -213,25 +169,6 @@ export default function NewInvoicePage() {
               <h2 className="text-2xl font-extrabold text-slate-900 mt-2">Création de Facture</h2>
               <p className="text-xs text-slate-500">Calcul automatique de la TVA 18% et devises en FCFA</p>
             </div>
-
-            {/* Issuer Branch / Sub-company Selector */}
-            {subsidiariesList.length > 0 && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase block">Établissement Émetteur</label>
-                <select
-                  value={selectedSubsidiaryId}
-                  onChange={(e) => setSelectedSubsidiaryId(e.target.value)}
-                  className="text-xs font-extrabold text-slate-900 bg-white border border-slate-200 rounded-lg px-2.5 py-1 focus:border-orange-500"
-                >
-                  <option value="">{organization.name} (Siège Social)</option>
-                  {subsidiariesList.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name} ({sub.city})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
           {/* Client Selection Dropdown & Info */}

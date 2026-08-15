@@ -11,8 +11,6 @@ import {
   X,
   Building2,
   LogOut,
-  UserCheck,
-  Zap,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
@@ -32,8 +30,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Factures', href: '/invoices', icon: FileText, badge: invoices.length > 0 ? invoices.length.toString() : undefined },
     { name: 'Clients', href: '/clients', icon: Users, badge: clients.length > 0 ? clients.length.toString() : undefined },
-    { name: 'Équipe & Collaborateurs', href: '/team', icon: UserCheck },
-    { name: 'Multi-Agences / Filiales', href: '/subsidiaries', icon: Building2 },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ];
 
@@ -64,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Organization Card Switcher */}
+        {/* Organization Card */}
         <div className="px-4 py-3 border-b border-zinc-800/60">
           <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
@@ -77,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-white truncate">{organization.name}</p>
-                <p className="text-[10px] text-emerald-400 font-bold font-mono">Service Gratuit V1</p>
+                <p className="text-[10px] text-zinc-400 font-medium">Facturation MonneyFact</p>
               </div>
             </div>
           </div>
@@ -132,23 +128,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-white truncate">{user?.name || 'Utilisateur'}</p>
-                <p className="text-[10px] text-zinc-400 truncate">
-                  {user?.isCollaborator ? `Collaborateur (${user.memberRole || 'Membre'})` : (user?.email || 'contact@monneyfact.ci')}
-                </p>
+                <p className="text-[10px] text-zinc-400 truncate">{user?.email || 'contact@monneyfact.ci'}</p>
               </div>
             </div>
             <button
-              onClick={() => {
-                if (user?.isCollaborator) {
-                  if (confirm("Voulez-vous terminer votre session collaborateur et quitter le tableau de bord ?")) {
-                    logout();
-                  }
-                } else {
-                  logout();
-                }
-              }}
-              title={user?.isCollaborator ? "Terminer la session collaborateur" : "Déconnexion"}
-              className="p-1.5 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors shrink-0"
+              onClick={() => logout()}
+              title="Déconnexion"
+              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>
