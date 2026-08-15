@@ -15,7 +15,7 @@ export const Hero: React.FC = () => {
         {/* Trust Pill Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold shadow-xs">
           <Sparkles className="w-4 h-4 text-orange-600" />
-          <span>La solution SaaS n°1 pour entrepreneurs en Côte d&apos;Ivoire 🇨🇮</span>
+          <span>Le service de facturation gratuit n°1 en Côte d&apos;Ivoire 🇨🇮</span>
           <span className="flex items-center gap-0.5 text-amber-500 font-extrabold ml-1">
             <Star className="w-3 h-3 fill-amber-400" /> 4.9/5
           </span>
@@ -57,7 +57,7 @@ export const Hero: React.FC = () => {
         <div className="flex flex-wrap items-center justify-center gap-6 text-xs font-semibold text-slate-500 pt-2">
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span>À partir de 1 000 FCFA/mois</span>
+            <span>Service 100% Gratuit V1</span>
           </div>
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -98,7 +98,7 @@ export const Hero: React.FC = () => {
                 </div>
                 <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
                   <p className="text-xs text-zinc-400 font-semibold">TVA 18% Déclarée</p>
-                  <p className="text-xl font-mono text-orange-400 font-bold mt-1">{formatFCFA(1998305)}</p>
+                  <p className="text-xl font-mono text-amber-400 font-bold mt-1">{formatFCFA(1998305)}</p>
                 </div>
               </div>
             </div>

@@ -17,8 +17,8 @@ export const Footer: React.FC = () => {
             <a href="#fonctionnalites" className="hover:text-white transition-colors">
               Fonctionnalités
             </a>
-            <a href="#tarifs" className="hover:text-white transition-colors">
-              Tarifs
+            <a href="#gratuit" className="hover:text-white transition-colors">
+              Accès Gratuit V1
             </a>
             <Link href="/login" className="hover:text-white transition-colors">
               Connexion

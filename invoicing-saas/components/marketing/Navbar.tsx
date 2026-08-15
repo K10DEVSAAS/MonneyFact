@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, User, Menu, X } from 'lucide-react';
+import { ArrowRight, User, Menu, X, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { Logo } from '@/components/ui/Logo';
 
@@ -21,8 +21,9 @@ export const MarketingNavbar: React.FC = () => {
           <a href="#fonctionnalites" className="hover:text-orange-600 transition-colors">
             Fonctionnalités
           </a>
-          <a href="#tarifs" className="hover:text-orange-600 transition-colors">
-            Tarifs & Abonnements
+          <a href="#gratuit" className="hover:text-orange-600 transition-colors flex items-center gap-1.5 text-emerald-700">
+            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <span>Accès Gratuit V1</span>
           </a>
           <a href="#temoignages" className="hover:text-orange-600 transition-colors">
             Témoignages
@@ -80,11 +81,11 @@ export const MarketingNavbar: React.FC = () => {
             Fonctionnalités
           </a>
           <a
-            href="#tarifs"
+            href="#gratuit"
             onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-lg hover:bg-slate-100"
+            className="block px-3 py-2 rounded-lg hover:bg-slate-100 text-emerald-700"
           >
-            Tarifs & Abonnements
+            Accès Gratuit V1
           </a>
           <a
             href="#temoignages"
