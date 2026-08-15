@@ -8,6 +8,7 @@ const scriptsToRun = [
   { name: 'LOOP 5 Profile & Settings Suite', script: 'scripts/test_loop5_settings.ts' },
   { name: 'LOOP 6 Client CRUD & Unlimited Suite', script: 'scripts/test_loop6_clients.ts' },
   { name: 'LOOP 7 Invoice Creation & Tax Suite', script: 'scripts/test_loop7_create_invoice.ts' },
+  { name: 'LOOP 8 Dashboard & Financial Stats Suite', script: 'scripts/test_loop8_dashboard.ts' },
 ];
 
 async function runAllLoopsRegression() {
