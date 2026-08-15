@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Users, Plus, Search, Mail, Phone, MapPin, Trash2, X, CheckCircle2, Building, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/lib/store/appStore';
 import { formatFCFA } from '@/lib/utils/formatters';
-
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
 export default function ClientsPage() {
@@ -15,8 +13,6 @@ export default function ClientsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const canManageClients = hasPermission('manage_clients');
-  const isBasique = organization.plan === 'Basique';
-  const basiqueLimitReached = isBasique && clients.length >= 10;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -46,11 +42,6 @@ export default function ClientsPage() {
       return;
     }
 
-    if (basiqueLimitReached) {
-      alert('Limite de 10 clients atteinte pour le Plan Basique (1 000 FCFA). Passez au Plan Pro (5 000 FCFA/mois) dans les Paramètres pour ajouter des clients en illimité !');
-      return;
-    }
-
     let currentSubName: string | undefined = undefined;
     if (activeSubsidiaryId !== 'global') {
       try {
@@ -70,11 +61,11 @@ export default function ClientsPage() {
       organizationId: organization.id,
       subsidiaryId: activeSubsidiaryId !== 'global' ? activeSubsidiaryId : undefined,
       subsidiaryName: currentSubName,
-      name: formData.name,
-      email: formData.email || 'client@entreprise.ci',
-      phone: formData.phone || '+225 07 00 00 00 00',
-      address: formData.address || 'Abidjan',
-      city: formData.city,
+      name: formData.name.trim(),
+      email: formData.email.trim() || 'client@entreprise.ci',
+      phone: formData.phone.trim() || '+225 07 00 00 00 00',
+      address: formData.address.trim() || 'Abidjan',
+      city: formData.city.trim() || 'Abidjan',
       country: 'Côte d\'Ivoire',
       totalInvoiced: 0,
       unpaidBalance: 0,
@@ -85,26 +76,7 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in text-slate-900">
-      {/* ALERT BANNER IF BASIQUE CLIENT LIMIT REACHED */}
-      {basiqueLimitReached && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-900 text-xs font-semibold flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
-            <div>
-              <p className="font-extrabold text-slate-900">Limite atteinte : Plan Basique ({clients.length}/10 clients)</p>
-              <p className="text-slate-600">Vous avez atteint la limite de 10 clients sur le Plan Basique. Passez au Plan Pro pour ajouter des clients en illimité !</p>
-            </div>
-          </div>
-          <Link
-            href="/settings"
-            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shrink-0 shadow-xs"
-          >
-            Passez au Plan Pro (5 000 FCFA/m)
-          </Link>
-        </div>
-      )}
-
+    <div className="space-y-6 animate-fade-in text-slate-900 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -115,25 +87,13 @@ export default function ClientsPage() {
         </div>
 
         {canManageClients && (
-          basiqueLimitReached ? (
-            <button
-              onClick={() =>
-                alert('Limite de 10 clients atteinte pour le Plan Basique. Passez au Plan Pro (5 000 FCFA/m) dans les Paramètres pour ajouter des clients en illimité !')
-              }
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-300 text-slate-600 text-xs font-bold rounded-xl shadow-xs cursor-not-allowed self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nouveau Client (Limite 10/10)</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nouveau Client</span>
-            </button>
-          )
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all self-start sm:self-auto cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouveau Client</span>
+          </button>
         )}
       </div>
 
@@ -150,9 +110,10 @@ export default function ClientsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
-          <span className="px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full">
-            Total : {clients.length} client(s)
+        <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+          <span className="px-3.5 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-full flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+            <span>Total : {clients.length} client(s) (Accès Illimité V1)</span>
           </span>
         </div>
       </div>
@@ -329,7 +290,7 @@ export default function ClientsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl shadow-md shadow-orange-600/20 transition-all cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Enregistrer le client</span>

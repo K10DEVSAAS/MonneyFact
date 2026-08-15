@@ -28,14 +28,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { organization, invoices, clients } = useAppStore();
 
-  const isPro = organization.plan === 'Pro';
-
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Factures', href: '/invoices', icon: FileText, badge: invoices.length > 0 ? invoices.length.toString() : undefined },
     { name: 'Clients', href: '/clients', icon: Users, badge: clients.length > 0 ? clients.length.toString() : undefined },
-    { name: 'Équipe & Collaborateurs', href: '/team', icon: UserCheck, proBadge: !isPro },
-    { name: 'Multi-Agences / Filiales', href: '/subsidiaries', icon: Building2, proBadge: !isPro },
+    { name: 'Équipe & Collaborateurs', href: '/team', icon: UserCheck },
+    { name: 'Multi-Agences / Filiales', href: '/subsidiaries', icon: Building2 },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ];
 
@@ -79,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-white truncate">{organization.name}</p>
-                <p className="text-[10px] text-orange-400 font-bold font-mono">Plan {organization.plan || 'Pro'}</p>
+                <p className="text-[10px] text-emerald-400 font-bold font-mono">Service Gratuit V1</p>
               </div>
             </div>
           </div>
@@ -111,12 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   <span>{item.name}</span>
                 </div>
 
-                {item.proBadge ? (
-                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    <Zap className="w-3 h-3 text-emerald-400" />
-                    <span>Pro</span>
-                  </span>
-                ) : item.badge ? (
+                {item.badge ? (
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       isActive ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-300'

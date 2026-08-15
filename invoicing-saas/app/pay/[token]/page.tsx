@@ -157,17 +157,31 @@ export default function PublicPaymentPage({ params }: { params: Promise<{ token:
       } else {
         // Mode Simulation pour les tests locaux lorsque l'API CinetPay n'est pas configurée
         await new Promise((resolve) => setTimeout(resolve, 1000));
+        const simTxId = `CPAY-SIM-${Date.now()}`;
         updateInvoiceStatus(invoice.id, 'paid');
+
+        // Insert Payment Record
+        await supabase.from('payments').insert({
+          invoice_id: invoice.id,
+          amount: invoice.total,
+          currency: 'FCFA',
+          provider: 'cinetpay',
+          provider_transaction_id: simTxId,
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          metadata: { simulation: true, channel: selectedChannel },
+        });
+
         await supabase
           .from('invoices')
           .update({
             status: 'paid',
             paid_at: new Date().toISOString(),
-            payment_method: selectedChannel || 'mobile_money',
-            payment_transaction_id: `CPAY-SIM-${Date.now()}`
+            payment_method: selectedChannel || 'wave',
+            payment_transaction_id: simTxId
           })
-          .or(`id.eq.${invoice.id},payment_token.eq.${invoice.id}`);
-        setTransactionRef(`CPAY-SIM-${Date.now()}`);
+          .eq('payment_token', invoice.paymentToken || token);
+        setTransactionRef(simTxId);
         setPaymentSuccess(true);
       }
     } catch (err: any) {

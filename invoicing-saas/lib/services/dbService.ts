@@ -164,6 +164,55 @@ export const dbService = {
     }
   },
 
+  async updateOrganizationById(orgId: string, updates: Partial<Organization>): Promise<boolean> {
+    try {
+      const payload: any = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.address !== undefined) payload.address = updates.address;
+      if (updates.phone !== undefined) payload.phone = updates.phone;
+      if (updates.taxId !== undefined) payload.tax_id = updates.taxId;
+      if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl;
+      if (updates.currency !== undefined) payload.currency = updates.currency;
+      if (updates.defaultTaxRate !== undefined) payload.default_tax_rate = updates.defaultTaxRate;
+
+      const { error } = await supabase
+        .from('organizations')
+        .update(payload)
+        .eq('id', orgId);
+
+      if (error) {
+        console.error('[dbService updateOrganizationById error]', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateOrganizationById exception:', e);
+      return false;
+    }
+  },
+
+  async updateUserProfile(userId: string, updates: { fullName?: string; email?: string }): Promise<boolean> {
+    try {
+      const payload: any = {};
+      if (updates.fullName !== undefined) payload.full_name = updates.fullName;
+      if (updates.email !== undefined) payload.email = updates.email.toLowerCase().trim();
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', userId);
+
+      if (error) {
+        console.error('[dbService updateUserProfile error]', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateUserProfile exception:', e);
+      return false;
+    }
+  },
+
   // --- CLIENTS ---
   async getClients(organizationId: string): Promise<Client[]> {
     try {
@@ -234,6 +283,41 @@ export const dbService = {
     } catch (e) {
       console.error(e);
       return null;
+    }
+  },
+
+  async updateClient(clientId: string, updates: Partial<Client>): Promise<boolean> {
+    try {
+      const payload: any = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.email !== undefined) payload.email = updates.email;
+      if (updates.phone !== undefined) payload.phone = updates.phone;
+      if (updates.address !== undefined) payload.address = updates.address;
+      if (updates.city !== undefined) payload.city = updates.city;
+
+      const { error } = await supabase
+        .from('clients')
+        .update(payload)
+        .eq('id', clientId);
+
+      return !error;
+    } catch (e) {
+      console.error('dbService updateClient error:', e);
+      return false;
+    }
+  },
+
+  async deleteClient(clientId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      return !error;
+    } catch (e) {
+      console.error('dbService deleteClient error:', e);
+      return false;
     }
   },
 

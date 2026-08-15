@@ -7,23 +7,47 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
-    console.log('[API PUBLIC PAY] Fetching invoice for token:', token);
+    console.log('[API PUBLIC PAY] Fetching invoice strictly for payment_token:', token);
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
-
-    let query = supabase.from('invoices').select(`
-      *,
-      invoice_items (*),
-      organizations (name, logo_url)
-    `);
-
-    if (isUuid) {
-      query = query.or(`id.eq.${token},payment_token.eq.${token}`);
-    } else {
-      query = query.or(`payment_token.eq.${token},invoice_number.eq.${token}`);
+    if (!token || token.trim().length < 8) {
+      return NextResponse.json({ success: false, error: 'Token de paiement invalide' }, { status: 400 });
     }
 
-    const { data: dbInv, error } = await query.maybeSingle();
+    const { data: dbInv, error } = await supabase
+      .from('invoices')
+      .select(`
+        id,
+        invoice_number,
+        client_name,
+        client_email,
+        status,
+        issue_date,
+        due_date,
+        subtotal,
+        tax_rate,
+        tax_amount,
+        total,
+        notes,
+        observations,
+        signature_url,
+        payment_token,
+        payment_method,
+        paid_at,
+        created_at,
+        invoice_items (
+          id,
+          description,
+          quantity,
+          unit_price,
+          line_total
+        ),
+        organizations (
+          name,
+          logo_url
+        )
+      `)
+      .eq('payment_token', token.trim())
+      .maybeSingle();
 
     if (error) {
       console.warn('[API PUBLIC PAY] Query error:', error);
@@ -31,7 +55,7 @@ export async function GET(
     }
 
     if (!dbInv) {
-      return NextResponse.json({ success: false, error: 'Facture introuvable' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Facture introuvable pour ce lien de paiement.' }, { status: 404 });
     }
 
     return NextResponse.json({

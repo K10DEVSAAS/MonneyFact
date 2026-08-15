@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../supabase/client';
 import { PlanType, RoleType, PermissionKey } from '../types/invoice';
+import { dbService } from '../services/dbService';
 import {
   hashPassword,
   verifyPassword,
@@ -380,25 +381,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let foundCompanyName = isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (normalizedEmail ? normalizedEmail.split('@')[0] : 'Mon Entreprise');
     let foundUserId = isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`;
 
+    let foundOrgId: string | undefined = undefined;
+
     if (!isSuperAdmin) {
       try {
-        const savedOrgStr = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
-        if (savedOrgStr) {
-          const savedOrg = JSON.parse(savedOrgStr);
-          if (savedOrg.name) foundCompanyName = savedOrg.name;
-          if (savedOrg.id) foundUserId = savedOrg.id;
+        const dbOrg = await dbService.getOrganization(normalizedEmail);
+        if (dbOrg) {
+          foundCompanyName = dbOrg.name;
+          foundOrgId = dbOrg.id;
         } else {
-          const savedListStr = localStorage.getItem('monneyfact_companies_list');
-          if (savedListStr) {
-            const list: any[] = JSON.parse(savedListStr);
-            const found = list.find((c) =>
-              (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
-              (c.email && c.email.toLowerCase() === normalizedEmail)
-            );
-            if (found) {
-              foundCompanyName = found.name || found.ownerName || foundCompanyName;
-              if (found.id) foundUserId = found.id;
-            }
+          const savedOrgStr = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
+          if (savedOrgStr) {
+            const savedOrg = JSON.parse(savedOrgStr);
+            if (savedOrg.name) foundCompanyName = savedOrg.name;
+            if (savedOrg.id) foundOrgId = savedOrg.id;
           }
         }
       } catch (e) {
@@ -407,10 +403,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const loggedInUser: UserSession = {
-      id: foundUserId,
+      id: foundOrgId ? `usr-${foundOrgId}` : (isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`),
       name: isSuperAdmin ? 'Fondateur MonneyFact' : foundCompanyName,
       email: normalizedEmail,
       role: isSuperAdmin ? 'super_admin' : 'client',
+      organizationId: foundOrgId,
       companyName: foundCompanyName,
       plan: actualPlan,
     };
@@ -525,13 +522,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // Upsert Organization in Supabase database
+    let dbOrg = await dbService.upsertOrganization({ name: companyName, email: cleanEmail });
+
     const newUser: UserSession = {
-      id: `usr-${Date.now()}`,
+      id: dbOrg?.id ? `usr-${dbOrg.id}` : `usr-${Date.now()}`,
       name: companyName,
       email: cleanEmail,
       role: 'client',
+      organizationId: dbOrg?.id,
       companyName,
-      plan,
+      plan: 'Pro',
     };
 
     setUser(newUser);

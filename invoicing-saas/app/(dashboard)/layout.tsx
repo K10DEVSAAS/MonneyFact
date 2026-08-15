@@ -6,7 +6,6 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import { useAuth } from '@/lib/auth/authContext';
 import { useAppStore } from '@/lib/store/appStore';
-import { subscriptionService } from '@/lib/services/subscriptionService';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -38,17 +37,7 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, isLoadingSession, router]);
 
-  // 2. EXPIRED SUBSCRIPTION PROTECTION: Redirect to /renewal if subscription is expired
-  useEffect(() => {
-    if (
-      isAuthenticated &&
-      organization &&
-      (organization.status === 'expired' ||
-        subscriptionService.isSubscriptionExpired(organization.expiresAt))
-    ) {
-      router.push('/renewal');
-    }
-  }, [isAuthenticated, organization, router]);
+
 
   // Show loading screen while validating session
   if (isLoadingSession) {

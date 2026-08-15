@@ -81,45 +81,29 @@ function SignupFormContent() {
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Open Simulated Payment Modal for both Basique (1000 FCFA) & Pro (5000 FCFA)
-    setPaymentModalOpen(true);
-  };
+    setIsSubmitting(true);
+    setErrorMessage('');
 
-  const handleSimulatePayment = async () => {
-    setProcessingPayment(true);
     try {
-      const result = await paymentProvider.initiatePayment({
-        amount: price,
-        currency: 'FCFA',
-        customerEmail: email,
-        customerPhone: phone,
-        planName: selectedPlan,
-        channel: selectedChannel,
-      });
-
-      if (result.success) {
-        // Initialize account at zero and set active paid plan
-        initializeZeroAccount(companyName, email, selectedPlan);
-        await registerClient(companyName, email, selectedPlan, password);
-        setPaymentModalOpen(false);
-      } else {
-        alert('Erreur lors du paiement simulé. Veuillez réessayer.');
-      }
-    } catch (err) {
+      initializeZeroAccount(companyName, email, 'Pro');
+      await registerClient(companyName, email, 'Pro', password);
+    } catch (err: any) {
       console.error(err);
-      alert('Erreur réseau lors de la simulation de paiement.');
+      setErrorMessage(err?.message || 'Erreur lors de la création du compte. Veuillez réessayer.');
     } finally {
-      setProcessingPayment(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="w-full max-w-xl bg-zinc-950 rounded-3xl border border-zinc-800 p-6 sm:p-8 shadow-2xl space-y-6 relative z-10 animate-fade-in text-zinc-100">
-      {/* Top Bar Navigation: Retour à la Landing Page (Point 8) */}
+      {/* Top Bar Navigation: Retour à la Landing Page */}
       <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
         <Link
           href="/"
@@ -135,9 +119,9 @@ function SignupFormContent() {
         <div className="flex justify-center">
           <Logo variant="dark" size="lg" href="/" />
         </div>
-        <h2 className="text-xl font-bold text-white tracking-tight">Créer votre compte entreprise</h2>
+        <h2 className="text-xl font-bold text-white tracking-tight">Créer votre compte gratuit</h2>
         <p className="text-xs text-zinc-400">
-          Facturez vos clients en moins de 2 minutes en Côte d&apos;Ivoire.
+          Facturez vos clients gratuitement en moins de 2 minutes en Côte d&apos;Ivoire.
         </p>
       </div>
 
@@ -179,46 +163,6 @@ function SignupFormContent() {
       <div className="relative flex items-center justify-center">
         <div className="border-t border-zinc-800 w-full" />
         <span className="bg-zinc-950 px-3 text-[10px] uppercase font-bold text-zinc-500 shrink-0">ou avec email</span>
-      </div>
-
-      {/* 2-Plan Selection Cards (Basique 1000 FCFA vs Pro 5000 FCFA) */}
-      <div className="space-y-2">
-        <label className="block text-xs font-bold text-zinc-300">Choisissez votre formule d&apos;abonnement *</label>
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { id: 'Basique', label: 'Plan Basique', price: '1 000 FCFA/m', desc: 'Factures & PDF simples' },
-            { id: 'Pro', label: 'Plan Pro ⚡', price: '5 000 FCFA/m', desc: 'Illimité & Dashboard avancé', badge: 'Recommandé' },
-          ].map((plan) => (
-            <button
-              key={plan.id}
-              type="button"
-              onClick={() => setSelectedPlan(plan.id as PlanType)}
-              className={`p-4 rounded-2xl border text-left flex flex-col justify-between transition-all ${
-                selectedPlan === plan.id
-                  ? 'bg-orange-950/60 border-orange-500 text-white ring-2 ring-orange-500/30 shadow-md'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-              }`}
-            >
-              <div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-extrabold text-white block">{plan.label}</span>
-                  {plan.badge && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                      {plan.badge}
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm font-mono font-black text-orange-400 block mt-1">{plan.price}</span>
-                <span className="text-[10px] text-zinc-500 mt-1 block">{plan.desc}</span>
-              </div>
-              {selectedPlan === plan.id && (
-                <div className="mt-3 text-right">
-                  <Check className="w-4 h-4 text-emerald-400 inline-block" />
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Signup Form */}
@@ -294,100 +238,22 @@ function SignupFormContent() {
 
         <button
           type="submit"
-          className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
+          disabled={isSubmitting}
+          className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2"
         >
-          <span>S&apos;inscrire et régler ({price.toLocaleString()} FCFA/mois)</span>
-          <ArrowRight className="w-4 h-4" />
+          {isSubmitting ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Création du compte en cours...</span>
+            </>
+          ) : (
+            <>
+              <span>Créer mon compte gratuit</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </form>
-
-      {/* SIMULATED PAYMENT MODAL FOR BASIQUE & PRO PLANS */}
-      {paymentModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="max-w-md w-full bg-zinc-900 rounded-3xl border border-zinc-800 p-6 space-y-5 text-zinc-100 shadow-2xl">
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
-                <CreditCard className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-black text-white">Guichet de Paiement Simulé</h3>
-              <p className="text-xs text-zinc-400">
-                Formule : <strong className="text-white font-bold">{selectedPlan}</strong> — Montant : <strong className="text-orange-400 font-mono font-bold text-sm">{price.toLocaleString()} FCFA/m</strong>
-              </p>
-            </div>
-
-            <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl text-[11px] text-zinc-300 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-orange-400 shrink-0" />
-              <span>Simulation de transaction prête pour l&apos;intégration Siposive Genius Pay.</span>
-            </div>
-
-            {/* Payment Channel Selection */}
-            <div className="space-y-2 text-xs">
-              <label className="font-bold text-zinc-300">Choisissez votre mode de règlement :</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'wave', label: 'Wave 🌊' },
-                  { id: 'orange_money', label: 'Orange Money 🟧' },
-                  { id: 'mtn_momo', label: 'MTN MoMo 🟨' },
-                  { id: 'card', label: 'Carte Bancaire 💳' },
-                ].map((ch) => (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    onClick={() => setSelectedChannel(ch.id as PaymentChannel)}
-                    className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                      selectedChannel === ch.id
-                        ? 'bg-orange-600 text-white border-orange-500'
-                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
-                    }`}
-                  >
-                    {ch.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1 text-xs">
-              <label className="font-bold text-zinc-300">Numéro Mobile Money pour la simulation</label>
-              <div className="relative">
-                <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-mono text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
-              <button
-                type="button"
-                disabled={processingPayment}
-                onClick={() => setPaymentModalOpen(false)}
-                className="px-4 py-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 text-xs font-bold rounded-xl"
-              >
-                Annuler
-              </button>
-
-              <button
-                type="button"
-                disabled={processingPayment}
-                onClick={handleSimulatePayment}
-                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-600/30 flex items-center gap-2"
-              >
-                {processingPayment ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <span>Simuler le Règlement ({price.toLocaleString()} FCFA)</span>
-                    <Check className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="text-center text-xs text-zinc-400">
         <span>Déjà inscrit ? </span>

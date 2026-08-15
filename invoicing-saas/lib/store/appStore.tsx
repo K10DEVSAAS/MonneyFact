@@ -809,10 +809,17 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     addCompanyNotif('Nouveau Client Enregistré', `Le client "${created.name}" a été ajouté à votre répertoire.`, 'success');
   };
 
-  const deleteClient = (id: string) => {
+  const deleteClient = async (id: string) => {
     const target = clients.find((c) => c.id === id);
     const updated = clients.filter((c) => c.id !== id);
     saveClientsForUser(updated);
+
+    try {
+      await dbService.deleteClient(id);
+    } catch (e) {
+      console.warn('Supabase deleteClient warning:', e);
+    }
+
     if (target) {
       addCompanyNotif('Client Supprimé', `Le client "${target.name}" a été retiré.`, 'warning');
     }

@@ -21,18 +21,18 @@ export interface AdminAuditLog {
 }
 
 export const PLAN_PRICES: Record<PlanType, number> = {
-  Basique: 1000,
-  Pro: 5000,
+  Basique: 0,
+  Pro: 0,
 };
 
 export const PLAN_LIMITS = {
   Basique: {
-    maxInvoicesPerMonth: 10,
-    maxClients: 10,
-    customLogo: false,
-    advancedQuotes: false,
-    advancedAnalytics: false,
-    paymentTracking: false,
+    maxInvoicesPerMonth: Infinity,
+    maxClients: Infinity,
+    customLogo: true,
+    advancedQuotes: true,
+    advancedAnalytics: true,
+    paymentTracking: true,
   },
   Pro: {
     maxInvoicesPerMonth: Infinity,
@@ -45,27 +45,13 @@ export const PLAN_LIMITS = {
 };
 
 export const subscriptionService = {
-  // Check if invoice creation is allowed under current plan limits
-  canCreateInvoice(plan: PlanType = 'Basique', monthlyInvoiceCount: number): { allowed: boolean; reason?: string } {
-    const limit = PLAN_LIMITS[plan]?.maxInvoicesPerMonth || 10;
-    if (monthlyInvoiceCount >= limit) {
-      return {
-        allowed: false,
-        reason: `Limite de ${limit} factures/mois atteinte pour le Plan Basique (1 000 FCFA). Passez au Plan Pro (5 000 FCFA/mois) pour facturer en illimité !`,
-      };
-    }
+  // Check if invoice creation is allowed under current plan limits (V1: Always allowed)
+  canCreateInvoice(_plan: PlanType = 'Pro', _monthlyInvoiceCount: number = 0): { allowed: boolean; reason?: string } {
     return { allowed: true };
   },
 
-  // Check if client creation is allowed under current plan limits
-  canCreateClient(plan: PlanType = 'Basique', currentClientCount: number): { allowed: boolean; reason?: string } {
-    const limit = PLAN_LIMITS[plan]?.maxClients || 10;
-    if (currentClientCount >= limit) {
-      return {
-        allowed: false,
-        reason: `Limite de ${limit} clients atteinte pour le Plan Basique (1 000 FCFA). Passez au Plan Pro (5 000 FCFA/mois) pour ajouter des clients en illimité !`,
-      };
-    }
+  // Check if client creation is allowed under current plan limits (V1: Always allowed)
+  canCreateClient(_plan: PlanType = 'Pro', _currentClientCount: number = 0): { allowed: boolean; reason?: string } {
     return { allowed: true };
   },
 
