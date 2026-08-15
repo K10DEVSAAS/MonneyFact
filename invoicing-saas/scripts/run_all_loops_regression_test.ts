@@ -6,6 +6,7 @@ const scriptsToRun = [
   { name: 'LOOP 4 Offensive Security Suite', script: 'scripts/test_loop4_security.ts' },
   { name: 'LOOP 4.5 Payment Security Suite', script: 'scripts/test_loop4_5_payment_security.ts' },
   { name: 'LOOP 4.8 Multi-Device Client Pipeline Suite', script: 'scripts/test_loop4_8_client_pipeline.ts' },
+  { name: 'LOOP 4.9 Real RLS & PostgreSQL Multi-Tenant Isolation Suite', script: 'scripts/test_loop4_9_rls_isolation.ts' },
   { name: 'LOOP 5 Profile & Settings Suite', script: 'scripts/test_loop5_settings.ts' },
   { name: 'LOOP 6 Client CRUD & Unlimited Suite', script: 'scripts/test_loop6_clients.ts' },
   { name: 'LOOP 7 Invoice Creation & Tax Suite', script: 'scripts/test_loop7_create_invoice.ts' },

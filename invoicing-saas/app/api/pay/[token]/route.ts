@@ -29,10 +29,6 @@ export async function GET(
         total,
         notes,
         observations,
-        signature_url,
-        payment_token,
-        payment_method,
-        paid_at,
         created_at,
         invoice_items (
           id,
@@ -46,7 +42,7 @@ export async function GET(
           logo_url
         )
       `)
-      .eq('payment_token', token.trim())
+      .eq('id', token.trim())
       .maybeSingle();
 
     if (error) {
