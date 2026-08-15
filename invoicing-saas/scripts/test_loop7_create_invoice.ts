@@ -1,25 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 
-let supabaseUrl = 'https://dekxifsxqxoljobhzraw.supabase.co';
-let supabaseAnonKey = '';
-
-try {
-  const envPath = path.join(__dirname, '../.env.local');
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    for (const line of envContent.split('\n')) {
-      if (line.startsWith('NEXT_PUBLIC_SUPABASE_URL=')) {
-        supabaseUrl = line.split('=')[1].trim();
-      }
-      if (line.startsWith('NEXT_PUBLIC_SUPABASE_ANON_KEY=')) {
-        supabaseAnonKey = line.split('=')[1].trim();
-      }
+// Parse .env.local synchronously FIRST before creating Supabase client
+const envPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const [key, ...valueParts] = trimmed.split('=');
+      const val = valueParts.join('=').trim();
+      process.env[key.trim()] = val.replace(/^["']|["']$/g, '');
     }
   }
-} catch (e) {
-  console.warn('Could not load .env.local:', e);
+}
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Credentials missing in .env.local');
+  process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -33,10 +36,14 @@ async function runLoop7InvoiceCreationSuite() {
   const orgBId = '22222222-7777-4222-b222-222222222222';
 
   const invoiceAId = '33333333-7777-4333-a333-333333333333';
-  const paymentTokenA = `token-inv-a-${Date.now()}`;
 
   let passedCount = 0;
   let failedCount = 0;
+
+  // Cleanup any old test records
+  await supabase.from('invoice_items').delete().eq('invoice_id', invoiceAId);
+  await supabase.from('invoices').delete().eq('id', invoiceAId);
+  await supabase.from('organizations').delete().in('id', [orgAId, orgBId]);
 
   // Setup Test Organizations
   await supabase.from('organizations').upsert([

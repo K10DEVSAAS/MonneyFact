@@ -26,9 +26,9 @@ export default function ClientsPage() {
 
   const filteredClients = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(activeSearch.toLowerCase()) ||
-      c.email.toLowerCase().includes(activeSearch.toLowerCase()) ||
-      c.city.toLowerCase().includes(activeSearch.toLowerCase())
+      (c.name || '').toLowerCase().includes(activeSearch.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(activeSearch.toLowerCase()) ||
+      (c.city || '').toLowerCase().includes(activeSearch.toLowerCase())
   );
 
   const handleCreateClient = (e: React.FormEvent) => {

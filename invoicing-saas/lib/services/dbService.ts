@@ -358,37 +358,39 @@ export const dbService = {
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
-      if (error || !data) return [];
+      if (error) {
+        console.error('[DB SERVICE ERROR] getClients failed:', error.message);
+        return [];
+      }
+      if (!data) return [];
 
       return data.map((c) => ({
         id: c.id,
         organizationId: c.organization_id,
         subsidiaryId: c.subsidiary_id || c.subsidiaryId || undefined,
         subsidiaryName: c.subsidiary_name || c.subsidiaryName || undefined,
-        name: c.name,
-        email: c.email,
-        phone: c.phone,
-        address: c.address,
-        city: c.city,
-        country: c.country,
-        totalInvoiced: c.total_invoiced,
-        unpaidBalance: c.unpaid_balance,
+        name: c.name || '',
+        email: c.email || '',
+        phone: c.phone || '',
+        address: c.address || '',
+        city: c.city || 'Abidjan',
+        country: c.country || "Côte d'Ivoire",
+        totalInvoiced: c.total_invoiced || 0,
+        unpaidBalance: c.unpaid_balance || 0,
         createdAt: c.created_at,
       }));
     } catch (e) {
-      console.error(e);
+      console.error('[DB SERVICE EXCEPTION] getClients error:', e);
       return [];
     }
   },
 
-  async createClient(client: Omit<Client, 'id' | 'createdAt'>): Promise<Client | null> {
+  async createClient(client: Partial<Omit<Client, 'id' | 'createdAt'>> & { organizationId: string; name: string }): Promise<Client | null> {
     try {
       const { data, error } = await supabase
         .from('clients')
         .insert({
           organization_id: client.organizationId,
-          subsidiary_id: client.subsidiaryId || null,
-          subsidiary_name: client.subsidiaryName || null,
           name: client.name,
           email: client.email,
           phone: client.phone,
@@ -399,7 +401,11 @@ export const dbService = {
         .select('*')
         .single();
 
-      if (error || !data) return null;
+      if (error) {
+        console.error('[DB SERVICE ERROR] createClient failed:', error.message, error.details);
+        return null;
+      }
+      if (!data) return null;
 
       return {
         id: data.id,

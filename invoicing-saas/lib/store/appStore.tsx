@@ -252,7 +252,6 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setRegisteredCompanies(JSON.parse(savedCompList));
         }
 
-        // 100% PostgreSQL DB Authority Lookup
         if (userEmail) {
           try {
             const dbOrg = await dbService.getOrganization(u.organizationId || userEmail);
@@ -266,7 +265,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (isSubscribed) setOrganization(currentOrg);
 
-        if (currentOrg.id && currentOrg.id !== 'guest-org' && currentOrg.id !== DEFAULT_ORG_UUID && isSubscribed) {
+        if (currentOrg.id && currentOrg.id !== 'guest-org' && isSubscribed) {
           try {
             const [dbInvoices, dbClients, dbNotifs, dbSubs] = await Promise.all([
               dbService.getInvoices(currentOrg.id),
@@ -276,49 +275,26 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ]);
 
             if (isSubscribed) {
-              if (dbSubs && dbSubs.length > 0) {
-                setSubsidiaries(dbSubs);
-                if (userEmail) {
-                  localStorage.setItem(`monneyfact_subsidiaries_${userEmail}`, JSON.stringify(dbSubs));
-                  localStorage.setItem('monneyfact_subsidiaries_list', JSON.stringify(dbSubs));
-                }
+              // 100% PostgreSQL Source of Truth replacement
+              setSubsidiaries(dbSubs || []);
+              if (userEmail && dbSubs) {
+                localStorage.setItem(`monneyfact_subsidiaries_${userEmail}`, JSON.stringify(dbSubs));
+                localStorage.setItem('monneyfact_subsidiaries_list', JSON.stringify(dbSubs));
               }
-              if (dbInvoices && dbInvoices.length > 0) {
-                const localInvoicesArr: Invoice[] = savedInvoices ? JSON.parse(savedInvoices) : [];
-                const mergedInvoices = dbInvoices.map((dbInv) => {
-                  const existingLocal = localInvoicesArr.find(
-                    (loc) => loc.id === dbInv.id || loc.invoiceNumber === dbInv.invoiceNumber
-                  );
-                  return {
-                    ...dbInv,
-                    subsidiaryId: dbInv.subsidiaryId || existingLocal?.subsidiaryId,
-                    subsidiaryName: dbInv.subsidiaryName || existingLocal?.subsidiaryName,
-                  };
-                });
 
-                const dbInvoiceIds = new Set(dbInvoices.map((i) => i.id));
-                const unSyncedLocalInvoices = localInvoicesArr.filter((loc) => !dbInvoiceIds.has(loc.id));
-                const finalAllInvoices = [...mergedInvoices, ...unSyncedLocalInvoices];
+              setInvoices(dbInvoices || []);
+              if (userEmail && dbInvoices) {
+                localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(dbInvoices));
+              }
 
-                setInvoices(finalAllInvoices);
-                if (userEmail) localStorage.setItem(`monneyfact_invoices_${userEmail}`, JSON.stringify(finalAllInvoices));
+              setClients(dbClients || []);
+              if (userEmail && dbClients) {
+                localStorage.setItem(`monneyfact_clients_${userEmail}`, JSON.stringify(dbClients));
               }
-              if (dbClients && dbClients.length > 0) {
-                const localClientsArr: Client[] = savedClients ? JSON.parse(savedClients) : [];
-                const mergedClients = dbClients.map((dbCli) => {
-                  const existingLocal = localClientsArr.find((loc) => loc.id === dbCli.id || loc.name === dbCli.name);
-                  return {
-                    ...dbCli,
-                    subsidiaryId: dbCli.subsidiaryId || existingLocal?.subsidiaryId,
-                    subsidiaryName: dbCli.subsidiaryName || existingLocal?.subsidiaryName,
-                  };
-                });
-                setClients(mergedClients);
-                if (userEmail) localStorage.setItem(`monneyfact_clients_${userEmail}`, JSON.stringify(mergedClients));
-              }
-              if (dbNotifs && dbNotifs.length > 0) {
-                setCompanyNotifications(dbNotifs);
-                if (userEmail) localStorage.setItem(`monneyfact_notifs_${userEmail}`, JSON.stringify(dbNotifs));
+
+              setCompanyNotifications(dbNotifs || []);
+              if (userEmail && dbNotifs) {
+                localStorage.setItem(`monneyfact_notifs_${userEmail}`, JSON.stringify(dbNotifs));
               }
             }
           } catch (dbErr) {
@@ -773,40 +749,41 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let targetSubName = newCli.subsidiaryName;
 
     if (targetSubId && !targetSubName) {
-      try {
-        const uEmail = getUserEmail();
-        const userSubsStr = localStorage.getItem(`monneyfact_subsidiaries_${uEmail}`);
-        if (userSubsStr) {
-          const subs: any[] = JSON.parse(userSubsStr);
-          const found = subs.find((s) => s.id === targetSubId);
-          if (found) targetSubName = found.name;
-        }
-      } catch (e) {
-        console.error(e);
-      }
+      const found = (subsidiaries || []).find((s) => s.id === targetSubId);
+      if (found) targetSubName = found.name;
     }
 
-    const created: Client = {
+    const targetOrgId = organization.id;
+    let dbCreatedClient: Client | null = null;
+
+    try {
+      if (targetOrgId) {
+        dbCreatedClient = await dbService.createClient({
+          ...newCli,
+          organizationId: targetOrgId,
+          subsidiaryId: targetSubId,
+          subsidiaryName: targetSubName,
+        });
+      }
+    } catch (dbErr) {
+      console.warn('Supabase create client warning:', dbErr);
+    }
+
+    const finalClient: Client = dbCreatedClient || {
       ...newCli,
       id: `cli-${Date.now()}`,
+      organizationId: targetOrgId,
       subsidiaryId: targetSubId,
       subsidiaryName: targetSubName,
       createdAt: new Date().toISOString(),
       totalInvoiced: 0,
       unpaidBalance: 0,
     };
-    const updated = [created, ...clients];
+
+    const updated = [finalClient, ...clients.filter((c) => c.id !== finalClient.id)];
     saveClientsForUser(updated);
 
-    try {
-      if (organization.id) {
-        await dbService.createClient({ ...created, organizationId: organization.id });
-      }
-    } catch (dbErr) {
-      console.warn('Supabase create client warning:', dbErr);
-    }
-
-    addCompanyNotif('Nouveau Client Enregistré', `Le client "${created.name}" a été ajouté à votre répertoire.`, 'success');
+    addCompanyNotif('Nouveau Client Enregistré', `Le client "${finalClient.name}" a été ajouté à votre répertoire.`, 'success');
   };
 
   const deleteClient = async (id: string) => {

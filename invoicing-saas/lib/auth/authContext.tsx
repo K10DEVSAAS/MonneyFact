@@ -233,6 +233,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           setUser(activeUser);
           localStorage.setItem('monneyfact_active_user', JSON.stringify(activeUser));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('monneyfact_auth_change'));
+          }
         }
       } finally {
         if (isMounted) setIsLoadingSession(false);
@@ -250,6 +253,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           supabase.auth.signOut();
           localStorage.removeItem('monneyfact_active_user');
           setUser(null);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('monneyfact_auth_change'));
+          }
           return;
         }
 
@@ -278,9 +284,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(activeUser);
         localStorage.setItem('monneyfact_active_user', JSON.stringify(activeUser));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('monneyfact_auth_change'));
+        }
       } else if (event === 'SIGNED_OUT' && isMounted) {
         setUser(null);
         localStorage.removeItem('monneyfact_active_user');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('monneyfact_auth_change'));
+        }
       }
       if (isMounted) setIsLoadingSession(false);
     });
