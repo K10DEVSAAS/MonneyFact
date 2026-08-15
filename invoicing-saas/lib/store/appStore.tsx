@@ -252,19 +252,19 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setRegisteredCompanies(JSON.parse(savedCompList));
         }
 
-        // Restore from Supabase DB asynchronously for 100% data durability on re-login
+        // 100% PostgreSQL DB Authority Lookup
         if (userEmail) {
           try {
-            const dbOrg = await dbService.getOrganization(userEmail);
-            if (dbOrg && isSubscribed) {
-              currentOrg = { ...currentOrg, ...dbOrg, id: (dbOrg.id && dbOrg.id !== DEFAULT_ORG_UUID) ? dbOrg.id : uniqueUserOrgId };
-              setOrganization(currentOrg);
-              localStorage.setItem(`monneyfact_org_${userEmail}`, JSON.stringify(currentOrg));
+            const dbOrg = await dbService.getOrganization(u.organizationId || userEmail);
+            if (dbOrg) {
+              currentOrg = { ...currentOrg, ...dbOrg, id: dbOrg.id };
             }
           } catch (dbErr) {
             console.warn('Supabase org load warning:', dbErr);
           }
         }
+
+        if (isSubscribed) setOrganization(currentOrg);
 
         if (currentOrg.id && currentOrg.id !== 'guest-org' && currentOrg.id !== DEFAULT_ORG_UUID && isSubscribed) {
           try {

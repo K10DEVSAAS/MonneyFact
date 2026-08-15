@@ -177,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 2. Background verification with Supabase SDK
+    // 2. Background verification with Supabase SDK & PostgreSQL DB Authority
     const restoreSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -190,29 +191,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          const name = session.user.user_metadata?.full_name || email.split('@')[0];
           const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
           const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
-          const actualPlan = resolveUserPlan(email);
 
-          let companyName = isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`;
-          const savedStr = localStorage.getItem('monneyfact_active_user');
-          if (savedStr) {
-            try {
-              const parsed = JSON.parse(savedStr);
-              if (parsed.email?.toLowerCase() === email.toLowerCase() && parsed.companyName) {
-                companyName = parsed.companyName;
-              }
-            } catch (e) {}
+          // 100% PostgreSQL Lookup for profile & organization
+          let dbProfile = await dbService.getProfileById(session.user.id) || await dbService.getProfileByEmail(email);
+          let dbOrg = dbProfile?.organization_id 
+            ? await dbService.getOrganization(dbProfile.organization_id)
+            : await dbService.getOrganization(email);
+
+          // If org exists but profile is missing, heal profile record in PostgreSQL
+          if (!dbProfile && !isSuperAdmin) {
+            if (!dbOrg) {
+              dbOrg = await dbService.upsertOrganization({ name: `${email.split('@')[0]} Enterprise`, email });
+            }
+            if (dbOrg) {
+              dbProfile = await dbService.upsertProfile({
+                id: session.user.id,
+                email,
+                full_name: dbOrg.name,
+                role: 'client',
+                organization_id: dbOrg.id,
+              });
+            }
           }
+
+          const companyName = isSuperAdmin 
+            ? 'MonneyFact Inc. Côte d\'Ivoire' 
+            : (dbOrg?.name || dbProfile?.full_name || `${email.split('@')[0]} Enterprise`);
+          const organizationId = dbOrg?.id || dbProfile?.organization_id;
 
           const activeUser: UserSession = {
             id: session.user.id,
-            name: isSuperAdmin ? 'Fondateur MonneyFact' : name,
+            name: isSuperAdmin ? 'Fondateur MonneyFact' : (dbProfile?.full_name || companyName),
             email,
             role,
+            organizationId,
             companyName,
-            plan: actualPlan,
+            plan: 'Pro',
           };
 
           setUser(activeUser);
@@ -226,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restoreSession();
 
     // 3. Listen to OAuth Sign-in & Refresh Events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session && session.user && isMounted) {
         const email = session.user.email || '';
 
@@ -237,18 +253,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        const name = session.user.user_metadata?.full_name || email.split('@')[0];
         const isSuperAdmin = email.toLowerCase() === 'admin@monneyfact.ci';
         const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
-        const actualPlan = resolveUserPlan(email);
+
+        let dbProfile = await dbService.getProfileById(session.user.id) || await dbService.getProfileByEmail(email);
+        let dbOrg = dbProfile?.organization_id 
+          ? await dbService.getOrganization(dbProfile.organization_id)
+          : await dbService.getOrganization(email);
+
+        const companyName = isSuperAdmin 
+          ? 'MonneyFact Inc. Côte d\'Ivoire' 
+          : (dbOrg?.name || dbProfile?.full_name || `${email.split('@')[0]} Enterprise`);
+        const organizationId = dbOrg?.id || dbProfile?.organization_id;
 
         const activeUser: UserSession = {
           id: session.user.id,
-          name: isSuperAdmin ? 'Fondateur MonneyFact' : name,
+          name: isSuperAdmin ? 'Fondateur MonneyFact' : (dbProfile?.full_name || companyName),
           email,
           role,
-          companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : `${name} Enterprise`,
-          plan: actualPlan,
+          organizationId,
+          companyName,
+          plan: 'Pro',
         };
 
         setUser(activeUser);
@@ -298,29 +323,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isSuperAdmin = normalizedEmail === 'admin@monneyfact.ci';
 
     if (!isOAuth) {
-      // 2. DATABASE EXISTENCE CHECK: Reject non-existent accounts for password logins
+      // 2. DATABASE EXISTENCE CHECK: Query Supabase Auth & PostgreSQL
       let isRegistered = false;
-      try {
-        const savedStr = localStorage.getItem('monneyfact_companies_list');
-        if (savedStr) {
-          const companies: any[] = JSON.parse(savedStr);
-          isRegistered = companies.some(
-            (c) =>
-              (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
-              (c.email && c.email.toLowerCase() === normalizedEmail)
-          );
-        }
+      let dbOrg = await dbService.getOrganization(normalizedEmail);
+      let dbProfile = await dbService.getProfileByEmail(normalizedEmail);
 
-        if (!isRegistered) {
-          const userOrg = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
-          if (userOrg) isRegistered = true;
-        }
+      if (dbOrg || dbProfile) {
+        isRegistered = true;
+      }
 
-        if (!isRegistered && getStoredAccount(normalizedEmail)) {
-          isRegistered = true;
-        }
-      } catch (e) {
-        console.error(e);
+      // Check Supabase Auth as secondary check
+      if (!isRegistered) {
+        try {
+          const { data: sbAuthData, error: sbAuthErr } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password: password || '',
+          });
+          if (sbAuthData?.user) {
+            isRegistered = true;
+          }
+        } catch (e) {}
+      }
+
+      // Fallback check local storage accounts
+      if (!isRegistered) {
+        try {
+          const savedStr = localStorage.getItem('monneyfact_companies_list');
+          if (savedStr) {
+            const companies: any[] = JSON.parse(savedStr);
+            isRegistered = companies.some(
+              (c) =>
+                (c.ownerEmail && c.ownerEmail.toLowerCase() === normalizedEmail) ||
+                (c.email && c.email.toLowerCase() === normalizedEmail)
+            );
+          }
+          if (!isRegistered && getStoredAccount(normalizedEmail)) {
+            isRegistered = true;
+          }
+        } catch (e) {}
       }
 
       if (!isSuperAdmin && !isRegistered) {
@@ -331,17 +371,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // 3. PASSWORD VERIFICATION
+      // 3. PASSWORD VERIFICATION & SUPABASE AUTH
       let storedAccount = getStoredAccount(normalizedEmail);
 
-      // Initial setup fallback for accounts registered before password hashing update or admin demo
       if (!storedAccount && (isSuperAdmin || isRegistered)) {
         const defaultPass = isSuperAdmin ? 'Admin1234' : (password || '');
         const initialHash = await hashPassword(defaultPass);
         storedAccount = {
           email: normalizedEmail,
-          companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : normalizedEmail.split('@')[0],
-          plan: resolveUserPlan(normalizedEmail),
+          companyName: isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (dbOrg?.name || normalizedEmail.split('@')[0]),
+          plan: 'Pro',
           hash: initialHash.hash,
           salt: initialHash.salt,
           createdAt: new Date().toISOString(),
@@ -363,7 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Attempt Supabase auth login in background if available
+      // Attempt Supabase auth login
       try {
         await supabase.auth.signInWithPassword({
           email: normalizedEmail,
@@ -377,39 +416,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Successful login -> Clear rate limits
     clearRateLimit(normalizedEmail);
 
-    const actualPlan = resolveUserPlan(normalizedEmail);
-    let foundCompanyName = isSuperAdmin ? 'MonneyFact Inc. Côte d\'Ivoire' : (normalizedEmail ? normalizedEmail.split('@')[0] : 'Mon Entreprise');
-    let foundUserId = isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`;
+    const role: UserRole = isSuperAdmin ? 'super_admin' : 'client';
 
-    let foundOrgId: string | undefined = undefined;
+    // 4. FETCH AUTHORITATIVE DATA FROM POSTGRESQL DB
+    let dbOrg = await dbService.getOrganization(normalizedEmail);
+    let dbProfile = await dbService.getProfileByEmail(normalizedEmail);
 
-    if (!isSuperAdmin) {
-      try {
-        const dbOrg = await dbService.getOrganization(normalizedEmail);
-        if (dbOrg) {
-          foundCompanyName = dbOrg.name;
-          foundOrgId = dbOrg.id;
-        } else {
-          const savedOrgStr = localStorage.getItem(`monneyfact_org_${normalizedEmail}`);
-          if (savedOrgStr) {
-            const savedOrg = JSON.parse(savedOrgStr);
-            if (savedOrg.name) foundCompanyName = savedOrg.name;
-            if (savedOrg.id) foundOrgId = savedOrg.id;
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    if (!dbOrg && dbProfile?.organization_id) {
+      dbOrg = await dbService.getOrganization(dbProfile.organization_id);
     }
 
+    const companyName = isSuperAdmin 
+      ? 'MonneyFact Inc. Côte d\'Ivoire' 
+      : (dbOrg?.name || dbProfile?.full_name || `${normalizedEmail.split('@')[0]} Enterprise`);
+    const organizationId = dbOrg?.id || dbProfile?.organization_id;
+
     const loggedInUser: UserSession = {
-      id: foundOrgId ? `usr-${foundOrgId}` : (isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`),
-      name: isSuperAdmin ? 'Fondateur MonneyFact' : foundCompanyName,
+      id: dbProfile?.id || (organizationId ? `usr-${organizationId}` : (isSuperAdmin ? 'usr-admin-99' : `usr-${Date.now()}`)),
+      name: isSuperAdmin ? 'Fondateur MonneyFact' : (dbProfile?.full_name || companyName),
       email: normalizedEmail,
-      role: isSuperAdmin ? 'super_admin' : 'client',
-      organizationId: foundOrgId,
-      companyName: foundCompanyName,
-      plan: actualPlan,
+      role,
+      organizationId,
+      companyName,
+      plan: 'Pro',
     };
 
     setUser(loggedInUser);
@@ -507,26 +536,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveStoredAccount(newAccount);
     }
 
-    // Try Supabase auth registration
+    // Supabase auth registration
+    let authUserId: string | undefined = undefined;
     if (password && password.trim()) {
       try {
-        await supabase.auth.signUp({
+        const { data: signUpData } = await supabase.auth.signUp({
           email: cleanEmail,
           password: password,
           options: {
             data: { company_name: companyName },
           },
         });
+        if (signUpData?.user?.id) {
+          authUserId = signUpData.user.id;
+        }
       } catch (sbErr) {
         console.warn('Supabase signup notice:', sbErr);
       }
     }
 
-    // Upsert Organization in Supabase database
+    // 1. Upsert Organization in Supabase database
     let dbOrg = await dbService.upsertOrganization({ name: companyName, email: cleanEmail });
 
+    // 2. Upsert Profile linked to authUserId and dbOrg.id in Supabase PostgreSQL
+    if (dbOrg) {
+      await dbService.upsertProfile({
+        id: authUserId,
+        email: cleanEmail,
+        full_name: companyName,
+        role: 'client',
+        organization_id: dbOrg.id,
+      });
+    }
+
     const newUser: UserSession = {
-      id: dbOrg?.id ? `usr-${dbOrg.id}` : `usr-${Date.now()}`,
+      id: authUserId || (dbOrg?.id ? `usr-${dbOrg.id}` : `usr-${Date.now()}`),
       name: companyName,
       email: cleanEmail,
       role: 'client',

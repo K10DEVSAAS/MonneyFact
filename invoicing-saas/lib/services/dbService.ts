@@ -2,15 +2,79 @@ import { supabase } from '../supabase/client';
 import { Invoice, Client, Organization, AppNotification } from '../types/invoice';
 
 export const dbService = {
-  // --- ORGANIZATIONS & ADMIN SUPERVISION ---
-  async getOrganization(email: string): Promise<Organization | null> {
+  // --- PROFILES & AUTH PERSISTENCE ---
+  async getProfileByEmail(email: string): Promise<any | null> {
+    try {
+      const cleanEmail = email.toLowerCase().trim();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return data;
+    } catch (e) {
+      console.error('Erreur getProfileByEmail:', e);
+      return null;
+    }
+  },
+
+  async getProfileById(userId: string): Promise<any | null> {
     try {
       const { data, error } = await supabase
-        .from('organizations')
+        .from('profiles')
         .select('*')
-        .eq('email', email)
-        .single();
+        .eq('id', userId)
+        .maybeSingle();
 
+      if (error || !data) return null;
+      return data;
+    } catch (e) {
+      console.error('Erreur getProfileById:', e);
+      return null;
+    }
+  },
+
+  async upsertProfile(profile: { id?: string; email: string; full_name?: string; role?: string; organization_id?: string }): Promise<any | null> {
+    try {
+      const cleanEmail = profile.email.toLowerCase().trim();
+      const payload: any = {
+        email: cleanEmail,
+        full_name: profile.full_name || cleanEmail.split('@')[0],
+        role: profile.role || 'client',
+        organization_id: profile.organization_id || null,
+      };
+      if (profile.id) payload.id = profile.id;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert(payload, { onConflict: profile.id ? 'id' : 'email' })
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erreur upsertProfile:', error.message);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      console.error('Exception upsertProfile:', e);
+      return null;
+    }
+  },
+
+  // --- ORGANIZATIONS & ADMIN SUPERVISION ---
+  async getOrganization(identifier: string): Promise<Organization | null> {
+    try {
+      let query = supabase.from('organizations').select('*');
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier)) {
+        query = query.eq('id', identifier);
+      } else {
+        query = query.eq('email', identifier.toLowerCase().trim());
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error || !data) return null;
 
       return {
@@ -21,9 +85,11 @@ export const dbService = {
         taxId: data.tax_id,
         logoUrl: data.logo_url,
         createdAt: data.created_at,
+        email: data.email,
+        plan: data.plan || 'Pro',
       };
     } catch (e) {
-      console.error(e);
+      console.error('Erreur getOrganization:', e);
       return null;
     }
   },
