@@ -17,33 +17,43 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
-      {/* Active Context Banner */}
-      <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-xl relative overflow-hidden">
-        {/* Subtle Orange Glow */}
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Active Context Header Banner (Inspired by Screen 1) */}
+      <div className="p-6 lg:p-8 bg-zinc-950 text-white rounded-3xl border border-zinc-800 shadow-2xl relative overflow-hidden">
+        {/* Subtle Orange Glow Circle */}
+        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 text-xs font-extrabold border border-orange-500/30 inline-flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5" />
-                <span>{organization.name}</span>
-              </span>
+          <div className="flex items-start gap-4">
+            {/* User Avatar Circle (Inspired by Screen 1) */}
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white font-extrabold text-lg flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0 border border-orange-400/40">
+              {(user?.name || organization.name || 'M').charAt(0).toUpperCase()}
             </div>
 
-            <h2 className="text-2xl lg:text-3xl font-black tracking-tight">
-              Bonjour, {user?.name || organization.name} ! 👋
-            </h2>
-            <p className="text-zinc-400 text-sm max-w-xl">
-              Synthèse financière et statistiques récapitulatives de vos factures et encaissements.
-            </p>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-zinc-400">
+                  Bonjour, <strong className="text-white font-black">{user?.name || organization.name}</strong> ! 👋
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-[11px] font-extrabold border border-orange-500/30 inline-flex items-center gap-1">
+                  <Building className="w-3 h-3" />
+                  <span>{organization.name}</span>
+                </span>
+              </div>
+
+              <h2 className="text-2xl lg:text-3xl font-black tracking-tight text-white">
+                Tableau de Bord & Activité
+              </h2>
+              <p className="text-zinc-400 text-xs sm:text-sm max-w-xl">
+                Suivez vos encaissements FCFA, vos factures émises et l&apos;état de votre trésorerie en temps réel.
+              </p>
+            </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Right Action Button */}
           <div className="flex items-center gap-3 shrink-0">
             <Link
               href="/invoices/new"
-              className="inline-flex items-center gap-2 px-5 py-3 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-sm font-extrabold rounded-2xl shadow-lg shadow-orange-600/25 transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-sm font-extrabold rounded-2xl shadow-xl shadow-orange-600/30 transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Créer une Facture</span>

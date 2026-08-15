@@ -2,205 +2,155 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import {
-  Eye,
-  FileEdit,
-  ArrowRight,
-  MoreVertical,
-  Download,
-  Filter,
-  Search,
-} from 'lucide-react';
-import { Invoice, InvoiceStatus } from '@/lib/types/invoice';
+import { ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, ChevronRight, FileText } from 'lucide-react';
+import { Invoice } from '@/lib/types/invoice';
 import { formatFCFA, formatDate } from '@/lib/utils/formatters';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 
 interface RecentInvoicesProps {
   invoices: Invoice[];
 }
 
-export const RecentInvoices: React.FC<RecentInvoicesProps> = ({ invoices }) => {
-  const [selectedFilter, setSelectedFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+type FilterType = 'all' | 'paid' | 'pending' | 'overdue';
 
-  // Filter invoices based on status tab and search query
+export const RecentInvoices: React.FC<RecentInvoicesProps> = ({ invoices }) => {
+  const [filter, setFilter] = useState<FilterType>('all');
+
   const filteredInvoices = invoices.filter((inv) => {
-    const matchesFilter =
-      selectedFilter === 'all' || inv.status === selectedFilter;
-    const matchesSearch =
-      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.clientName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+    if (filter === 'paid') return inv.status === 'paid';
+    if (filter === 'pending') return inv.status === 'sent' || inv.status === 'draft';
+    if (filter === 'overdue') return inv.status === 'overdue';
+    return true;
   });
 
-  const filterTabs: { id: string; label: string }[] = [
-    { id: 'all', label: `Toutes (${invoices.length})` },
-    { id: 'paid', label: `Payées (${invoices.filter((i) => i.status === 'paid').length})` },
-    { id: 'sent', label: `Envoyées (${invoices.filter((i) => i.status === 'sent').length})` },
-    { id: 'draft', label: `Brouillons (${invoices.filter((i) => i.status === 'draft').length})` },
-    { id: 'overdue', label: `En retard (${invoices.filter((i) => i.status === 'overdue').length})` },
-  ];
-
   return (
-    <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
-      {/* Table Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div className="p-6 sm:p-7 bg-white rounded-3xl border border-slate-200/80 shadow-xs space-y-6 text-slate-900">
+      {/* Header with Activity Feed Filter Pills (Inspired by Screen 2) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-bold text-slate-900">Dernières Factures</h3>
+          <h3 className="text-base font-extrabold text-slate-900">Activité Récente & Factures</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Aperçu en temps réel des transactions récentes
+            Suivi en temps réel de vos opérations de facturation et encaissements.
           </p>
         </div>
 
-        <Link
-          href="/invoices"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 group self-start sm:self-auto"
-        >
-          <span>Voir toutes les factures</span>
-          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-        </Link>
-      </div>
-
-      {/* Filter Tabs & Quick Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-          {filterTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedFilter(tab.id)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
-                selectedFilter === tab.id
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Local Search Input */}
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filtrer client ou N°..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-          />
+        {/* Filter Pills: All, Success, Pending, Failed (Matching Screen 2) */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60 self-start sm:self-auto">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filter === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Toutes ({invoices.length})
+          </button>
+          <button
+            onClick={() => setFilter('paid')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filter === 'paid' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Payées
+          </button>
+          <button
+            onClick={() => setFilter('pending')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filter === 'pending' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            En attente
+          </button>
+          <button
+            onClick={() => setFilter('overdue')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filter === 'overdue' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            En retard
+          </button>
         </div>
       </div>
 
-      {/* Invoices Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200/60 bg-slate-50/50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 rounded-l-xl">N° Facture</th>
-              <th className="py-3 px-4">Client</th>
-              <th className="py-3 px-4">Date d&apos;Émission</th>
-              <th className="py-3 px-4">Échéance</th>
-              <th className="py-3 px-4 text-right">Montant TTC</th>
-              <th className="py-3 px-4 text-center">Statut</th>
-              <th className="py-3 px-4 text-right rounded-r-xl">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-xs">
-            {filteredInvoices.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-400 font-medium">
-                  Aucune facture ne correspond à votre filtre.
-                </td>
-              </tr>
-            ) : (
-              filteredInvoices.map((inv) => (
-                <tr
-                  key={inv.id}
-                  className="group hover:bg-slate-50/80 transition-colors"
-                >
-                  {/* Invoice Number */}
-                  <td className="py-3.5 px-4 font-mono-numbers font-bold text-slate-900">
-                    <Link
-                      href={`/invoices/${inv.id}`}
-                      className="hover:text-indigo-600 transition-colors"
+      {/* Activity List (Inspired by Screen 1 & Screen 2) */}
+      {filteredInvoices.length === 0 ? (
+        <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+          <FileText className="w-8 h-8 text-slate-300 mx-auto" />
+          <p className="text-xs font-bold text-slate-600">Aucune activité enregistrée sous ce filtre.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredInvoices.slice(0, 6).map((inv) => {
+            const isPaid = inv.status === 'paid';
+            const isOverdue = inv.status === 'overdue';
+
+            return (
+              <Link
+                key={inv.id}
+                href={`/invoices/${inv.id}`}
+                className="group flex items-center justify-between p-4 bg-slate-50/60 hover:bg-orange-50/40 rounded-2xl border border-slate-200/60 hover:border-orange-200/80 transition-all duration-200"
+              >
+                {/* Left side: Status Icon & Details */}
+                <div className="flex items-center gap-3.5">
+                  {/* Direction Icon (↓ Payment Received, ↑ Invoice Sent, ! Overdue) */}
+                  <div
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-xs transition-transform group-hover:scale-105 ${
+                      isPaid
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200/60'
+                        : isOverdue
+                        ? 'bg-rose-50 text-rose-600 border-rose-200/60'
+                        : 'bg-amber-50 text-amber-600 border-amber-200/60'
+                    }`}
+                  >
+                    {isPaid ? (
+                      <ArrowDownLeft className="w-5 h-5" />
+                    ) : isOverdue ? (
+                      <AlertTriangle className="w-5 h-5" />
+                    ) : (
+                      <ArrowUpRight className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-black text-slate-900 font-mono">{inv.invoiceNumber}</p>
+                      <span
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                          isPaid
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : isOverdue
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {isPaid ? 'Paiement Encaissé' : isOverdue ? 'En Retard' : 'En Attente'}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-slate-600 mt-0.5">{inv.clientName}</p>
+                  </div>
+                </div>
+
+                {/* Right side: Amount, Date & Arrow */}
+                <div className="flex items-center gap-4 text-right">
+                  <div>
+                    <p
+                      className={`text-sm font-black font-mono tracking-tight ${
+                        isPaid ? 'text-emerald-600' : 'text-slate-900'
+                      }`}
                     >
-                      {inv.invoiceNumber}
-                    </Link>
-                  </td>
+                      {isPaid ? '+' : ''}
+                      {formatFCFA(inv.total)}
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      {formatDate(inv.issueDate)}
+                    </p>
+                  </div>
 
-                  {/* Client Info */}
-                  <td className="py-3.5 px-4">
-                    <div>
-                      <p className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                        {inv.clientName}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                        {inv.clientEmail && (
-                          <span className="text-[11px] text-slate-400 font-mono">{inv.clientEmail}</span>
-                        )}
-                        {inv.subsidiaryName ? (
-                          <span className="text-[9px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-md">
-                            📍 {inv.subsidiaryName}
-                          </span>
-                        ) : inv.subsidiaryId ? (
-                          <span className="text-[9px] font-extrabold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-md">
-                            📍 Agence
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-extrabold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
-                            🏢 Siège Social
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Issue Date */}
-                  <td className="py-3.5 px-4 text-slate-600 font-medium">
-                    {formatDate(inv.issueDate)}
-                  </td>
-
-                  {/* Due Date */}
-                  <td className="py-3.5 px-4 text-slate-600 font-medium">
-                    {formatDate(inv.dueDate)}
-                  </td>
-
-                  {/* Amount in FCFA */}
-                  <td className="py-3.5 px-4 text-right font-mono-numbers font-extrabold text-slate-900">
-                    {formatFCFA(inv.total)}
-                  </td>
-
-                  {/* Status Badge */}
-                  <td className="py-3.5 px-4 text-center">
-                    <StatusBadge status={inv.status} />
-                  </td>
-
-                  {/* Actions */}
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Link
-                        href={`/invoices/${inv.id}`}
-                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors"
-                        title="Voir la facture"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                      <button
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="Télécharger PDF"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-orange-600 group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
