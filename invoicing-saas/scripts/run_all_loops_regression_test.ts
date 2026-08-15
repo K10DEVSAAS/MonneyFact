@@ -9,11 +9,12 @@ const scriptsToRun = [
   { name: 'LOOP 6 Client CRUD & Unlimited Suite', script: 'scripts/test_loop6_clients.ts' },
   { name: 'LOOP 7 Invoice Creation & Tax Suite', script: 'scripts/test_loop7_create_invoice.ts' },
   { name: 'LOOP 8 Dashboard & Financial Stats Suite', script: 'scripts/test_loop8_dashboard.ts' },
+  { name: 'LOOP 9 Email & Payment Links Suite', script: 'scripts/test_loop9_email_and_payment_links.ts' },
 ];
 
 async function runAllLoopsRegression() {
   console.log('================================================================');
-  console.log('REGRESSION AUDIT GLOBAL : VERIFICATION TOUTES LOOPS (1 -> 7)');
+  console.log('REGRESSION AUDIT GLOBAL : VERIFICATION TOUTES LOOPS (1 -> 9)');
   console.log('================================================================\n');
 
   let passedSuites = 0;
@@ -41,7 +42,7 @@ async function runAllLoopsRegression() {
   }
 
   console.log('\n================================================================');
-  console.log(`BILAN DU REGRESSION AUDIT (LOOPS 1 -> 7) :`);
+  console.log(`BILAN DU REGRESSION AUDIT (LOOPS 1 -> 9) :`);
   console.log(`SUITES EN SUCCÈS : ${passedSuites} / ${scriptsToRun.length}`);
   console.log(`SUITES EN ÉCHEC : ${failedSuites} / ${scriptsToRun.length}`);
   console.log('================================================================\n');
