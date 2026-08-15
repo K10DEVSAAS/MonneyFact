@@ -159,13 +159,6 @@ export default function SettingsPage() {
             Gérez vos informations légales, votre logo officiel et les préférences de facturation.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="px-4 py-2 bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-xs font-bold rounded-2xl flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>MonneyFact V1 — Service Gratuit Illimité</span>
-          </span>
-        </div>
       </div>
 
       {saved && (

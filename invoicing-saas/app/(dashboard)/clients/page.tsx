@@ -112,8 +112,8 @@ export default function ClientsPage() {
 
         <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
           <span className="px-3.5 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-full flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-            <span>Total : {clients.length} client(s) (Accès Illimité V1)</span>
+            <Users className="w-3.5 h-3.5 text-orange-600" />
+            <span>Total : {clients.length} client(s)</span>
           </span>
         </div>
       </div>
