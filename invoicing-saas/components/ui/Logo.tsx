@@ -30,31 +30,21 @@ export const Logo: React.FC<LogoProps> = ({
 
   const LogoContent = (
     <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
-      {/* Sleek Minimalist Geometric SVG Icon */}
+      {/* Sleek Glowing Squircle SVG Icon */}
       <div className={`relative flex items-center justify-center shrink-0 ${iconSizes[size]}`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 rounded-xl rotate-3 shadow-md shadow-orange-500/30 transition-transform group-hover:rotate-6" />
-        <div className="absolute inset-[1.5px] bg-zinc-950 rounded-[10px] flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-400 rounded-xl shadow-md shadow-orange-500/40 border border-orange-400/50 transition-transform group-hover:scale-105" />
+        <div className="absolute inset-[2px] bg-zinc-950 rounded-[10px] flex items-center justify-center p-1.5 overflow-hidden">
           <svg
-            viewBox="0 0 24 24"
+            viewBox="0 0 512 512"
             fill="none"
-            className="w-3/5 h-3/5 text-orange-500 transform -rotate-3"
+            className="w-full h-full text-orange-500"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Geometric Financial M + Invoice Document Mark */}
-            <path
-              d="M4 18V6L10 13L16 6V18"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M18 10L20.5 7.5M20.5 7.5L18 5M20.5 7.5H15"
-              stroke="#F97316"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <g fill="none" stroke="#F97316" strokeWidth="48" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M 136 352 V 200 L 224 300 L 312 200 V 352" />
+              <path d="M 312 200 L 376 136" stroke="#FF6B00" />
+              <path d="M 310 136 H 376 V 202" stroke="#FF6B00" strokeWidth="44" />
+            </g>
           </svg>
         </div>
       </div>

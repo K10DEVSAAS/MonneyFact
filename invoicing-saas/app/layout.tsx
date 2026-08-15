@@ -8,10 +8,10 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://monney-fact.vercel.a
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'MonneyFact — Logiciel de Facturation SaaS en Côte d\'Ivoire 🇨🇮',
-    template: '%s | MonneyFact',
+    default: 'MoneyFact — Logiciel de Facturation SaaS en Côte d\'Ivoire 🇨🇮',
+    template: '%s | MoneyFact',
   },
-  description: 'Logiciel SaaS de facturation professionnelle certifié pour entrepreneurs et PME en Côte d\'Ivoire. Conforme TVA 18%, NCC/Compte Contribuable, FCFA et paiements Mobile Money (Wave, Orange, MTN, Moov).',
+  description: 'Logiciel SaaS de facturation professionnelle pour entrepreneurs et PME en Côte d\'Ivoire. Conforme TVA 18%, NCC/Compte Contribuable, FCFA et paiements Mobile Money (Wave, Orange, MTN, Moov).',
   keywords: [
     'facturation côte d\'ivoire',
     'logiciel facturation abidjan',
@@ -19,11 +19,11 @@ export const metadata: Metadata = {
     'saas facturation pme',
     'tva 18 côte d\'ivoire',
     'compte contribuable ncc',
-    'monneyfact',
+    'moneyfact',
   ],
-  authors: [{ name: 'MonneyFact Inc.', url: siteUrl }],
-  creator: 'MonneyFact Team',
-  publisher: 'MonneyFact Inc.',
+  authors: [{ name: 'MoneyFact Inc.', url: siteUrl }],
+  creator: 'MoneyFact Team',
+  publisher: 'MoneyFact Inc.',
   robots: {
     index: true,
     follow: true,
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'fr_CI',
     url: siteUrl,
-    title: 'MonneyFact — Facturation Simple & Sécurisée en Côte d\'Ivoire',
+    title: 'MoneyFact — Facturation Simple & Sécurisée en Côte d\'Ivoire',
     description: 'Créez vos factures professionnelles avec TVA 18% et recevez vos paiements par Wave, Mobile Money ou Carte.',
-    siteName: 'MonneyFact',
+    siteName: 'MoneyFact',
     images: [
       {
         url: `${siteUrl}/icon.svg`,
