@@ -14,6 +14,7 @@ import {
   User,
   Mail,
   ShieldCheck,
+  ShieldAlert,
   Check,
   Sparkles,
   Percent,
@@ -98,24 +99,30 @@ export default function SettingsPage() {
     }
   };
 
+  const [formError, setFormError] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setFormError('');
 
     try {
-      // 1. Local App Store Update
-      updateOrganization({
-        name: org.name,
-        address: org.address,
-        phone: org.phone,
-        taxId: org.taxId,
-        defaultTaxRate: org.defaultTaxRate,
-        currency: org.currency,
-      });
+      // 1. Client-Side Validation
+      if (!org.name.trim()) {
+        setFormError("Le nom de l'entreprise est obligatoire.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (org.defaultTaxRate < 0 || org.defaultTaxRate > 100) {
+        setFormError("Le taux de taxe doit être compris entre 0 et 100%.");
+        setIsSaving(false);
+        return;
+      }
 
       // 2. PostgreSQL Server Database Update
       if (organization.id) {
-        await dbService.updateOrganizationById(organization.id, {
+        const orgRes = await dbService.updateOrganizationById(organization.id, {
           name: org.name,
           address: org.address,
           phone: org.phone,
@@ -123,13 +130,29 @@ export default function SettingsPage() {
           defaultTaxRate: org.defaultTaxRate,
           currency: org.currency,
         });
+
+        if (!orgRes.success) {
+          setFormError(orgRes.error || "Échec de l'enregistrement PostgreSQL des paramètres d'entreprise.");
+          setIsSaving(false);
+          return;
+        }
+
+        if (orgRes.data) {
+          updateOrganization(orgRes.data);
+        }
       }
 
       if (user?.id) {
-        await dbService.updateUserProfile(user.id, {
+        const profRes = await dbService.updateUserProfile(user.id, {
           fullName: profile.fullName,
           email: profile.email,
         });
+
+        if (!profRes.success) {
+          setFormError(profRes.error || "Échec de l'enregistrement PostgreSQL du profil.");
+          setIsSaving(false);
+          return;
+        }
       }
 
       addCompanyNotif(
@@ -139,9 +162,9 @@ export default function SettingsPage() {
       );
       setSaved(true);
       setTimeout(() => setSaved(false), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur lors de la sauvegarde des paramètres:', err);
-      alert('Une erreur est survenue lors de l\'enregistrement.');
+      setFormError(err?.message || "Une erreur est survenue lors de l'enregistrement.");
     } finally {
       setIsSaving(false);
     }
@@ -160,6 +183,13 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
+
+      {formError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold flex items-center gap-3 shadow-xs">
+          <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
+          <span>{formError}</span>
+        </div>
+      )}
 
       {saved && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-3 shadow-xs">

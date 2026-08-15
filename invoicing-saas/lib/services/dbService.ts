@@ -230,52 +230,122 @@ export const dbService = {
     }
   },
 
-  async updateOrganizationById(orgId: string, updates: Partial<Organization>): Promise<boolean> {
+  async updateOrganizationById(orgId: string, updates: Partial<Organization>): Promise<{ success: boolean; data?: Organization; error?: string }> {
     try {
-      const payload: any = {};
-      if (updates.name !== undefined) payload.name = updates.name;
-      if (updates.address !== undefined) payload.address = updates.address;
-      if (updates.phone !== undefined) payload.phone = updates.phone;
-      if (updates.taxId !== undefined) payload.tax_id = updates.taxId;
-      if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl;
-      if (updates.currency !== undefined) payload.currency = updates.currency;
-      if (updates.defaultTaxRate !== undefined) payload.default_tax_rate = updates.defaultTaxRate;
+      if (!orgId || !/^[0-9a-f-]{36}$/i.test(orgId)) {
+        return { success: false, error: "Identifiant d'organisation invalide." };
+      }
 
-      const { error } = await supabase
+      // Input Validation
+      if (updates.name !== undefined) {
+        const trimmedName = updates.name.trim();
+        if (!trimmedName || trimmedName.length > 255) {
+          return { success: false, error: "Le nom de l'entreprise doit contenir entre 1 et 255 caractères." };
+        }
+      }
+
+      if (updates.email !== undefined) {
+        const cleanEmail = updates.email.toLowerCase().trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(cleanEmail)) {
+          return { success: false, error: "Adresse e-mail invalide." };
+        }
+      }
+
+      if (updates.defaultTaxRate !== undefined) {
+        const rate = Number(updates.defaultTaxRate);
+        if (isNaN(rate) || rate < 0 || rate > 100) {
+          return { success: false, error: "Le taux de taxe doit être un nombre compris entre 0 et 100%." };
+        }
+      }
+
+      const payload: any = {};
+      if (updates.name !== undefined) payload.name = updates.name.trim();
+      if (updates.address !== undefined) payload.address = updates.address.trim();
+      if (updates.phone !== undefined) payload.phone = updates.phone.trim();
+      if (updates.taxId !== undefined) payload.tax_id = updates.taxId.trim();
+      if (updates.logoUrl !== undefined) payload.logo_url = updates.logoUrl;
+      if (updates.currency !== undefined) payload.currency = updates.currency.trim();
+      if (updates.defaultTaxRate !== undefined) payload.default_tax_rate = Number(updates.defaultTaxRate);
+
+      const { data, error } = await supabase
         .from('organizations')
         .update(payload)
-        .eq('id', orgId);
+        .eq('id', orgId)
+        .select('*')
+        .maybeSingle();
 
-      if (error) {
-        console.error('[dbService updateOrganizationById error]', error.message);
-        return false;
+      if (error || !data) {
+        console.error('[dbService updateOrganizationById error]', error?.message);
+        return { success: false, error: error?.message || "Échec de la mise à jour PostgreSQL." };
       }
-      return true;
-    } catch (e) {
+
+      return {
+        success: true,
+        data: {
+          id: data.id,
+          name: data.name,
+          address: data.address,
+          phone: data.phone,
+          taxId: data.tax_id,
+          logoUrl: data.logo_url,
+          currency: data.currency,
+          defaultTaxRate: data.default_tax_rate,
+          createdAt: data.created_at,
+          email: data.email,
+          plan: data.plan || 'Pro',
+        },
+      };
+    } catch (e: any) {
       console.error('updateOrganizationById exception:', e);
-      return false;
+      return { success: false, error: e?.message || "Erreur serveur lors de la mise à jour." };
     }
   },
 
-  async updateUserProfile(userId: string, updates: { fullName?: string; email?: string }): Promise<boolean> {
+  async updateUserProfile(userId: string, updates: { fullName?: string; email?: string }): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      const payload: any = {};
-      if (updates.fullName !== undefined) payload.full_name = updates.fullName;
-      if (updates.email !== undefined) payload.email = updates.email.toLowerCase().trim();
+      if (!userId) {
+        return { success: false, error: "Identifiant utilisateur requis." };
+      }
 
-      const { error } = await supabase
+      const payload: any = {};
+      if (updates.fullName !== undefined) {
+        const trimmed = updates.fullName.trim();
+        if (!trimmed || trimmed.length > 255) {
+          return { success: false, error: "Le nom doit contenir entre 1 et 255 caractères." };
+        }
+        payload.full_name = trimmed;
+      }
+
+      if (updates.email !== undefined) {
+        const cleanEmail = updates.email.toLowerCase().trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(cleanEmail)) {
+          return { success: false, error: "Adresse e-mail invalide." };
+        }
+        payload.email = cleanEmail;
+      }
+
+      // Explicitly reject tampering with security fields
+      delete payload.role;
+      delete payload.organization_id;
+
+      const { data, error } = await supabase
         .from('profiles')
         .update(payload)
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('*')
+        .maybeSingle();
 
-      if (error) {
-        console.error('[dbService updateUserProfile error]', error.message);
-        return false;
+      if (error || !data) {
+        console.error('[dbService updateUserProfile error]', error?.message);
+        return { success: false, error: error?.message || "Échec de la mise à jour du profil." };
       }
-      return true;
-    } catch (e) {
+
+      return { success: true, data };
+    } catch (e: any) {
       console.error('updateUserProfile exception:', e);
-      return false;
+      return { success: false, error: e?.message || "Erreur serveur." };
     }
   },
 
