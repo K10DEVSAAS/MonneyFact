@@ -35,7 +35,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, onClose }) =
   const navigation = [
     { name: 'Cockpit Overview', href: '/admin', icon: LayoutDashboard },
     { name: 'Gestion Entreprises', href: '/admin/companies', icon: Building2, badge: countCompanies > 0 ? `${countCompanies}` : undefined },
-    { name: 'Abonnements & MRR', href: '/admin/subscriptions', icon: CreditCard },
+    { name: 'Volume & Transactions', href: '/admin/subscriptions', icon: CreditCard },
     { name: 'Historique & Sécurité', href: '/admin/logs', icon: Activity },
   ];
 

@@ -10,6 +10,7 @@ const scriptsToRun = [
   { name: 'LOOP 7 Invoice Creation & Tax Suite', script: 'scripts/test_loop7_create_invoice.ts' },
   { name: 'LOOP 8 Dashboard & Financial Stats Suite', script: 'scripts/test_loop8_dashboard.ts' },
   { name: 'LOOP 9 Email & Payment Links Suite', script: 'scripts/test_loop9_email_and_payment_links.ts' },
+  { name: 'Auth & Session Isolation Suite', script: 'scripts/test_auth_and_session_isolation.ts' },
 ];
 
 async function runAllLoopsRegression() {

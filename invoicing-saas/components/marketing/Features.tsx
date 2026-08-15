@@ -32,15 +32,22 @@ export const Features: React.FC = () => {
   ];
 
   return (
-    <section id="fonctionnalites" className="py-20 px-4 lg:px-8 bg-slate-50">
-      <div className="max-w-6xl mx-auto space-y-12">
-        <div className="text-center space-y-3 max-w-2xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-wider text-orange-600 px-3 py-1 bg-orange-50 border border-orange-200 rounded-full">
+    <section id="fonctionnalites" className="py-24 px-4 lg:px-8 bg-slate-50 relative overflow-hidden">
+      {/* Motion Background Element */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/5 blur-[100px] rounded-full pointer-events-none" />
+
+      <div className="max-w-6xl mx-auto space-y-14 relative z-10">
+        <div className="text-center space-y-4 max-w-2xl mx-auto">
+          <span className="text-xs font-bold uppercase tracking-wider text-orange-600 px-3.5 py-1.5 bg-orange-50 border border-orange-200/80 rounded-full inline-flex items-center gap-1.5 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
             Fonctionnalités Clés
           </span>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
             Tout ce dont vous avez besoin pour gérer l&apos;argent de votre entreprise.
           </h2>
+          <p className="text-xs sm:text-sm text-slate-600">
+            Une expérience fluide, sans paramétrage complexe, adaptée au marché ivoirien.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -49,13 +56,15 @@ export const Features: React.FC = () => {
             return (
               <div
                 key={idx}
-                className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-4"
+                className="p-7 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-2 hover:border-orange-300/80 transition-all duration-300 space-y-4 group flex flex-col justify-between"
               >
-                <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${item.color}`}>
-                  <Icon className="w-6 h-6" />
+                <div className="space-y-4">
+                  <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform duration-300 shadow-xs`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors">{item.title}</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">{item.description}</p>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{item.description}</p>
               </div>
             );
           })}
